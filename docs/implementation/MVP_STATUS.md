@@ -41,6 +41,12 @@ calculate amounts.
   limitations, blocking errors, and their forecast impact in Russian.
 - The desktop dashboard and preflight report now use the same synchronized
   snapshot, avoiding mixed-source results.
+- Alembic baseline and additive synchronization-history migration for both new
+  databases and existing prototype databases without deleting business data.
+- Append-only synchronization runs with canonical JSON source snapshots,
+  SHA-256 integrity hashes, and database triggers preventing snapshot updates or
+  deletion.
+- Snapshot decoding with integrity verification for later audit reproduction.
 - ADR for connector boundaries and regulatory network isolation.
 
 ## Verification
@@ -52,11 +58,11 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 14 tests passed, including UI smoke tests.
+Latest result: Ruff passed; 17 tests passed, including migration, snapshot
+immutability, round-trip, and UI smoke tests.
 
 ## Current limitations
 
-- No synchronization journal or persisted source snapshots exist yet.
 - No regulatory document, candidate-rule, reviewed-rule, or active-rule models
   exist yet.
 - No network access has been added.
@@ -64,10 +70,9 @@ Latest result: Ruff passed; 14 tests passed, including UI smoke tests.
 
 ## Next implementation slice
 
-1. Define persisted synchronization runs and immutable source snapshots before
-   implementing a concrete 1C adapter.
-2. Extend readiness checks with source-level rejected records and connector
+1. Extend readiness checks with source-level rejected records and connector
    diagnostics.
-3. Add the table of source events and make forecast causes visible.
+2. Add the table of source events and make forecast causes visible.
+3. Add a synchronization-history screen backed by the persisted runs.
 4. Add explicit company jurisdiction and tax-regime fields through a migration;
    until then the current prototype correctly reports limited fiscal readiness.

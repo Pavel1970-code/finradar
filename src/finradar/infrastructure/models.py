@@ -10,8 +10,10 @@ from sqlalchemy import (
     DateTime,
     Enum as SqlEnum,
     ForeignKey,
+    Integer,
     Numeric,
     String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -69,6 +71,45 @@ class Company(Base):
         back_populates="company",
         cascade="all, delete-orphan",
     )
+
+
+class SynchronizationRun(Base):
+    __tablename__ = "synchronization_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    source_system: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    readiness_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    issue_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    snapshot: Mapped[SourceSnapshot] = relationship(
+        back_populates="run",
+        uselist=False,
+        cascade="save-update, merge",
+    )
+
+
+class SourceSnapshot(Base):
+    __tablename__ = "source_snapshots"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    synchronization_run_id: Mapped[str] = mapped_column(
+        ForeignKey("synchronization_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    run: Mapped[SynchronizationRun] = relationship(back_populates="snapshot")
 
 
 class CashAccount(Base):

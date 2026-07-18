@@ -6,6 +6,9 @@ from PySide6.QtWidgets import QApplication
 from finradar.application.synchronization_service import synchronize_and_forecast
 from finradar.infrastructure.connectors.prototype_database import PrototypeDatabaseConnector
 from finradar.infrastructure.database import SessionLocal, initialize_database
+from finradar.infrastructure.synchronization_history import (
+    SqlAlchemySynchronizationHistory,
+)
 from finradar.ui.main_window import MainWindow
 
 
@@ -16,6 +19,7 @@ def main() -> int:
         PrototypeDatabaseConnector(SessionLocal),
         as_of=date.today(),
         horizon_days=horizon_days,
+        recorder=SqlAlchemySynchronizationHistory(SessionLocal),
     )
 
     app = QApplication(sys.argv)
