@@ -35,6 +35,12 @@ calculate amounts.
   unavailable payment calendar, jurisdiction, tax regime, and incompatible
   currencies.
 - End-to-end reference scenarios for complete, limited, and blocked data.
+- Read-only adapter from the current prototype SQLite schema to the canonical
+  connector snapshot.
+- Scrollable desktop preflight report showing source, supplied datasets,
+  limitations, blocking errors, and their forecast impact in Russian.
+- The desktop dashboard and preflight report now use the same synchronized
+  snapshot, avoiding mixed-source results.
 - ADR for connector boundaries and regulatory network isolation.
 
 ## Verification
@@ -46,14 +52,11 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 11 tests passed.
+Latest result: Ruff passed; 14 tests passed, including UI smoke tests.
 
 ## Current limitations
 
-- The existing dashboard still reads SQLAlchemy models directly through the
-  original forecast service; it is not connected to the canonical snapshot yet.
 - No synchronization journal or persisted source snapshots exist yet.
-- The readiness report is domain-only and has no UI.
 - No regulatory document, candidate-rule, reviewed-rule, or active-rule models
   exist yet.
 - No network access has been added.
@@ -61,11 +64,10 @@ Latest result: Ruff passed; 11 tests passed.
 
 ## Next implementation slice
 
-1. Add a preliminary data-readiness report to the desktop UI.
-2. Display supplied, unavailable, and problematic datasets before the forecast.
-3. Keep the current SQLite-backed dashboard available while the reference
-   connector flow is introduced.
-4. Define persisted synchronization runs and immutable source snapshots before
+1. Define persisted synchronization runs and immutable source snapshots before
    implementing a concrete 1C adapter.
-5. Extend readiness checks with source-level rejected records and connector
+2. Extend readiness checks with source-level rejected records and connector
    diagnostics.
+3. Add the table of source events and make forecast causes visible.
+4. Add explicit company jurisdiction and tax-regime fields through a migration;
+   until then the current prototype correctly reports limited fiscal readiness.

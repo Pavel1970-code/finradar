@@ -5,11 +5,14 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QMainWindow,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from finradar.application.forecast_service import CompanyForecast
+from finradar.application.synchronization_service import SynchronizationOutcome
+from finradar.domain.data_readiness import IssueSeverity, ReadinessStatus
+from finradar.domain.financial_snapshot import DatasetKind
 
 
 def format_money(
@@ -54,7 +57,8 @@ class MainWindow(QMainWindow):
     def __init__(
         self,
         *,
-        dashboard: CompanyForecast | None,
+        analysis: SynchronizationOutcome,
+        horizon_days: int,
     ) -> None:
         super().__init__()
 
@@ -62,8 +66,13 @@ class MainWindow(QMainWindow):
         self.resize(1200, 760)
         self.setMinimumSize(960, 640)
 
-        central_widget = QWidget()
-        root_layout = QVBoxLayout(central_widget)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        content_widget = QWidget()
+        content_widget.setObjectName("contentWidget")
+        root_layout = QVBoxLayout(content_widget)
         root_layout.setContentsMargins(42, 34, 42, 34)
         root_layout.setSpacing(24)
 
@@ -71,16 +80,20 @@ class MainWindow(QMainWindow):
         title.setObjectName("title")
         root_layout.addWidget(title)
 
-        if dashboard is None:
+        self._build_readiness_report(root_layout, analysis)
+
+        if analysis.forecast is None or analysis.snapshot.company is None:
             self._build_empty_state(root_layout)
         else:
             self._build_dashboard(
                 root_layout,
-                dashboard,
+                analysis,
+                horizon_days,
             )
 
         root_layout.addStretch()
-        self.setCentralWidget(central_widget)
+        scroll_area.setWidget(content_widget)
+        self.setCentralWidget(scroll_area)
         self._apply_styles()
 
     def _build_empty_state(
@@ -88,7 +101,7 @@ class MainWindow(QMainWindow):
         root_layout: QVBoxLayout,
     ) -> None:
         subtitle = QLabel(
-            "В базе данных пока нет компании."
+            "Прогноз пока недоступен."
         )
         subtitle.setObjectName("subtitle")
 
@@ -99,8 +112,8 @@ class MainWindow(QMainWindow):
         card_layout.setContentsMargins(26, 24, 26, 24)
 
         message = QLabel(
-            "Добавьте компанию и финансовые операции "
-            "или запустите генератор демонстрационных данных."
+            "Исправьте блокирующие пробелы, перечисленные "
+            "в предварительном отчёте, и повторите синхронизацию."
         )
         message.setObjectName("description")
         message.setWordWrap(True)
@@ -110,17 +123,86 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(subtitle)
         root_layout.addWidget(empty_card)
 
+    def _build_readiness_report(
+        self,
+        root_layout: QVBoxLayout,
+        analysis: SynchronizationOutcome,
+    ) -> None:
+        report = analysis.readiness
+        status_text = {
+            ReadinessStatus.READY: "Данные готовы к анализу",
+            ReadinessStatus.LIMITED: "Анализ возможен с ограничениями",
+            ReadinessStatus.BLOCKED: "Анализ заблокирован",
+        }[report.status]
+        status_object = {
+            ReadinessStatus.READY: "readinessReady",
+            ReadinessStatus.LIMITED: "readinessLimited",
+            ReadinessStatus.BLOCKED: "readinessBlocked",
+        }[report.status]
+
+        heading = QLabel("Предварительная проверка данных")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+
+        card = QFrame()
+        card.setObjectName(status_object)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(24, 20, 24, 20)
+        card_layout.setSpacing(10)
+
+        status_label = QLabel(status_text)
+        status_label.setObjectName("readinessStatus")
+        card_layout.addWidget(status_label)
+
+        supplied = ", ".join(
+            _dataset_label(dataset)
+            for dataset in DatasetKind
+            if analysis.snapshot.supplies(dataset)
+        )
+        source_label = QLabel(
+            f"Источник: {analysis.snapshot.source_system} · Получено: {supplied or 'нет данных'}"
+        )
+        source_label.setObjectName("readinessMeta")
+        source_label.setWordWrap(True)
+        card_layout.addWidget(source_label)
+
+        if not report.issues:
+            message = QLabel("Обязательные данные получены, критических пробелов нет.")
+            message.setObjectName("description")
+            message.setWordWrap(True)
+            card_layout.addWidget(message)
+        else:
+            for issue in report.issues:
+                marker = "Ошибка" if issue.severity is IssueSeverity.ERROR else "Ограничение"
+                message, impact = _localized_issue(issue.code, issue.message, issue.impact)
+                issue_label = QLabel(
+                    f"{marker}: {message}\nВлияние: {impact}"
+                )
+                issue_label.setObjectName(
+                    "readinessError"
+                    if issue.severity is IssueSeverity.ERROR
+                    else "readinessWarning"
+                )
+                issue_label.setWordWrap(True)
+                card_layout.addWidget(issue_label)
+
+        root_layout.addWidget(card)
+
     def _build_dashboard(
         self,
         root_layout: QVBoxLayout,
-        dashboard: CompanyForecast,
+        analysis: SynchronizationOutcome,
+        horizon_days: int,
     ) -> None:
-        result = dashboard.result
+        result = analysis.forecast
+        company = analysis.snapshot.company
+        assert result is not None
+        assert company is not None
 
         subtitle = QLabel(
-            f"{dashboard.company_name} · "
-            f"Прогноз на 30 дней · "
-            f"Операций: {dashboard.event_count}"
+            f"{company.name} · "
+            f"Прогноз на {horizon_days} дней · "
+            f"Событий: {len(analysis.snapshot.events)}"
         )
         subtitle.setObjectName("subtitle")
         root_layout.addWidget(subtitle)
@@ -152,21 +234,21 @@ class MainWindow(QMainWindow):
                 "Текущий остаток",
                 format_money(
                     result.opening_balance,
-                    dashboard.currency,
+                    company.base_currency,
                 ),
             ),
             create_metric_card(
-                "Остаток через 30 дней",
+                f"Остаток через {horizon_days} дней",
                 format_money(
                     result.closing_balance,
-                    dashboard.currency,
+                    company.base_currency,
                 ),
             ),
             create_metric_card(
                 "Минимальный баланс",
                 format_money(
                     result.minimum_balance,
-                    dashboard.currency,
+                    company.base_currency,
                 ),
                 state=minimum_state,
             ),
@@ -192,7 +274,7 @@ class MainWindow(QMainWindow):
             risk_description_text = (
                 "Для прохождения прогнозного периода требуется "
                 f"дополнительное финансирование: "
-                f"{format_money(result.required_funding, dashboard.currency)}."
+                f"{format_money(result.required_funding, company.base_currency)}."
             )
         else:
             risk_card.setObjectName("safeCard")
@@ -235,6 +317,10 @@ class MainWindow(QMainWindow):
                 background-color: #0b1020;
             }
 
+            QScrollArea, QWidget#contentWidget {
+                background-color: #0b1020;
+            }
+
             QLabel#title {
                 color: #f8fafc;
                 font-size: 36px;
@@ -244,6 +330,51 @@ class MainWindow(QMainWindow):
             QLabel#subtitle {
                 color: #94a3b8;
                 font-size: 16px;
+            }
+
+            QLabel#sectionTitle {
+                color: #f8fafc;
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+            QFrame#readinessReady {
+                background-color: #102824;
+                border: 1px solid #175e54;
+                border-radius: 14px;
+            }
+
+            QFrame#readinessLimited {
+                background-color: #2b2412;
+                border: 1px solid #80651c;
+                border-radius: 14px;
+            }
+
+            QFrame#readinessBlocked {
+                background-color: #2a1522;
+                border: 1px solid #7f1d3a;
+                border-radius: 14px;
+            }
+
+            QLabel#readinessStatus {
+                color: #f8fafc;
+                font-size: 18px;
+                font-weight: 600;
+            }
+
+            QLabel#readinessMeta {
+                color: #94a3b8;
+                font-size: 13px;
+            }
+
+            QLabel#readinessWarning {
+                color: #fde68a;
+                font-size: 14px;
+            }
+
+            QLabel#readinessError {
+                color: #fda4af;
+                font-size: 14px;
             }
 
             QFrame#metricCard {
@@ -298,3 +429,54 @@ class MainWindow(QMainWindow):
             }
             """
         )
+
+
+def _dataset_label(dataset: DatasetKind) -> str:
+    return {
+        DatasetKind.COMPANY_PROFILE: "профиль компании",
+        DatasetKind.ACCOUNT_BALANCES: "остатки",
+        DatasetKind.ACCOUNTING_FACTS: "учётные факты",
+        DatasetKind.PAYMENT_CALENDAR: "платёжный календарь",
+    }[dataset]
+
+
+def _localized_issue(code: str, message: str, impact: str) -> tuple[str, str]:
+    translations = {
+        "company_profile_missing": (
+            "Источник не передал профиль компании.",
+            "Нельзя определить применимость фискальных правил и построить прогноз компании.",
+        ),
+        "account_balances_unavailable": (
+            "Остатки по счетам недоступны.",
+            "Невозможно определить начальную денежную позицию.",
+        ),
+        "account_balances_empty": (
+            "Источник не вернул активных денежных счетов.",
+            "Невозможно определить начальную денежную позицию.",
+        ),
+        "account_balance_stale": (
+            "Остаток хотя бы одного счёта устарел.",
+            "Прогноз начинается с потенциально неактуальной денежной позиции.",
+        ),
+        "account_currency_incompatible": (
+            "Валюта хотя бы одного счёта отличается от базовой валюты компании.",
+            "Для общего прогноза нужна явно заданная политика конвертации.",
+        ),
+        "payment_calendar_unavailable": (
+            "Источник не передал платёжный календарь.",
+            "В прогнозе могут отсутствовать будущие поступления и платежи.",
+        ),
+        "event_currency_incompatible": (
+            "Валюта хотя бы одного события отличается от базовой валюты компании.",
+            "Событие нельзя учитывать без явно заданной политики конвертации.",
+        ),
+        "jurisdiction_missing": (
+            "Не указана юрисдикция компании.",
+            "Нельзя выбрать применимые фискальные правила.",
+        ),
+        "tax_regime_missing": (
+            "Не указан налоговый режим компании.",
+            "Нельзя надёжно рассчитать налоговые обязательства и льготы.",
+        ),
+    }
+    return translations.get(code, (message, impact))
