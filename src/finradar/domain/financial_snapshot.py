@@ -44,6 +44,7 @@ class FinancialEvent:
     external_id: str
     title: str
     amount: Decimal
+    currency: str
     due_date: date
     direction: FinancialDirection
     kind: FinancialEventKind
@@ -62,4 +63,3 @@ class FinancialSnapshot:
 
     def supplies(self, dataset: DatasetKind) -> bool:
         return dataset in self.available_datasets
-

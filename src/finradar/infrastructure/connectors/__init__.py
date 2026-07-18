@@ -1,0 +1,2 @@
+"""Accounting-system connector adapters."""
+

@@ -26,9 +26,15 @@ calculate amounts.
 - Explicit distinction between an available empty dataset and an unavailable
   dataset.
 - Read-only accounting connector protocol and capability declaration.
+- Deterministic demo/reference connector supplying fictional company data,
+  account balances, and payment-calendar events.
+- Application synchronization service that verifies connector declarations,
+  runs preflight checks, and builds a forecast only when data are sufficient.
 - Data-readiness report with `ready`, `limited`, and `blocked` outcomes.
 - Initial checks for unavailable balances, empty balances, stale balances,
-  unavailable payment calendar, jurisdiction, and tax regime.
+  unavailable payment calendar, jurisdiction, tax regime, and incompatible
+  currencies.
+- End-to-end reference scenarios for complete, limited, and blocked data.
 - ADR for connector boundaries and regulatory network isolation.
 
 ## Verification
@@ -40,13 +46,12 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 8 tests passed.
+Latest result: Ruff passed; 11 tests passed.
 
 ## Current limitations
 
 - The existing dashboard still reads SQLAlchemy models directly through the
   original forecast service; it is not connected to the canonical snapshot yet.
-- No demo/reference connector implementation exists yet.
 - No synchronization journal or persisted source snapshots exist yet.
 - The readiness report is domain-only and has no UI.
 - No regulatory document, candidate-rule, reviewed-rule, or active-rule models
@@ -56,10 +61,11 @@ Latest result: Ruff passed; 8 tests passed.
 
 ## Next implementation slice
 
-1. Implement a deterministic demo/reference accounting connector.
-2. Add an application synchronization service returning a snapshot and readiness
-   report together.
-3. Adapt canonical payment-calendar events to the existing forecast engine.
-4. Test complete, limited, and blocked end-to-end demo scenarios.
-5. Only then expose synchronization and the preliminary gap report in the UI.
-
+1. Add a preliminary data-readiness report to the desktop UI.
+2. Display supplied, unavailable, and problematic datasets before the forecast.
+3. Keep the current SQLite-backed dashboard available while the reference
+   connector flow is introduced.
+4. Define persisted synchronization runs and immutable source snapshots before
+   implementing a concrete 1C adapter.
+5. Extend readiness checks with source-level rejected records and connector
+   diagnostics.

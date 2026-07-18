@@ -83,6 +83,20 @@ def assess_forecast_readiness(
                 )
             )
 
+        if snapshot.company is not None and any(
+            balance.currency != snapshot.company.base_currency
+            for balance in snapshot.balances
+        ):
+            issues.append(
+                DataIssue(
+                    code="account_currency_incompatible",
+                    severity=IssueSeverity.ERROR,
+                    dataset=DatasetKind.ACCOUNT_BALANCES,
+                    message="At least one account uses a currency other than the base currency.",
+                    impact="A consolidated forecast requires an explicit conversion policy.",
+                )
+            )
+
     if not snapshot.supplies(DatasetKind.PAYMENT_CALENDAR):
         issues.append(
             DataIssue(
@@ -91,6 +105,19 @@ def assess_forecast_readiness(
                 dataset=DatasetKind.PAYMENT_CALENDAR,
                 message="The payment calendar was not supplied by the accounting source.",
                 impact="Future inflows and payments may be missing from the forecast.",
+            )
+        )
+    elif snapshot.company is not None and any(
+        event.currency != snapshot.company.base_currency
+        for event in snapshot.events
+    ):
+        issues.append(
+            DataIssue(
+                code="event_currency_incompatible",
+                severity=IssueSeverity.ERROR,
+                dataset=DatasetKind.PAYMENT_CALENDAR,
+                message="At least one payment-calendar event uses another currency.",
+                impact="The event cannot be included without an explicit conversion policy.",
             )
         )
 
@@ -124,4 +151,3 @@ def assess_forecast_readiness(
         status = ReadinessStatus.READY
 
     return ReadinessReport(status=status, issues=tuple(issues))
-
