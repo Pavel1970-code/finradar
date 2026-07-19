@@ -56,3 +56,8 @@ defined in
 ## Status
 
 Early desktop prototype under active development.
+
+A function-by-function factual description of the current implementation,
+including test evidence, Windows status, missing components, and known risks, is
+available in
+[PROJECT_FACTUAL_DESCRIPTION.md](docs/implementation/PROJECT_FACTUAL_DESCRIPTION.md).
