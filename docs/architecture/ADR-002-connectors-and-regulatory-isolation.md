@@ -44,3 +44,5 @@ deterministic code participate in calculations.
 - Regulatory documents, extracted candidates, reviewed rules, and active rules
   require separate lifecycle states.
 
+The concrete process, storage, exchange, and deployment boundary is specified in
+[ADR-006](ADR-006-regulatory-trust-boundary.md).

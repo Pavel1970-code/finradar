@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 finradar = "finradar.main:main"
+finradar-monitor = "finradar_monitor.main:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

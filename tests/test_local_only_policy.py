@@ -6,6 +6,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APPLICATION_ROOT = PROJECT_ROOT / "src" / "finradar"
+MONITOR_ROOT = PROJECT_ROOT / "src" / "finradar_monitor"
+CONTRACTS_ROOT = PROJECT_ROOT / "src" / "finradar_contracts"
 
 FORBIDDEN_IMPORTS = {
     "aiohttp",
@@ -115,3 +117,48 @@ def test_core_dependencies_have_no_network_clients() -> None:
         "Forbidden network dependencies found: "
         + ", ".join(violations)
     )
+
+
+def imported_modules(source_root: Path) -> list[tuple[Path, int, str]]:
+    imports: list[tuple[Path, int, str]] = []
+    for source_file in source_root.rglob("*.py"):
+        tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports.extend((source_file, node.lineno, alias.name) for alias in node.names)
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imports.append((source_file, node.lineno, node.module))
+    return imports
+
+
+def test_core_and_monitor_do_not_import_each_other() -> None:
+    violations: list[str] = []
+    boundaries = (
+        (APPLICATION_ROOT, "finradar_monitor"),
+        (MONITOR_ROOT, "finradar"),
+    )
+    for source_root, forbidden_package in boundaries:
+        for source_file, line_number, module_name in imported_modules(source_root):
+            if module_name == forbidden_package or module_name.startswith(
+                f"{forbidden_package}."
+            ):
+                relative_path = source_file.relative_to(PROJECT_ROOT)
+                violations.append(f"{relative_path}:{line_number}: {module_name}")
+
+    assert not violations, "Trust-boundary imports found:\n" + "\n".join(violations)
+
+
+def test_contracts_are_neutral_and_have_no_network_clients() -> None:
+    violations: list[str] = []
+    for source_file, line_number, module_name in imported_modules(CONTRACTS_ROOT):
+        is_project_runtime = (
+            module_name == "finradar"
+            or module_name.startswith("finradar.")
+            or module_name == "finradar_monitor"
+            or module_name.startswith("finradar_monitor.")
+        )
+        if is_project_runtime or is_forbidden(module_name):
+            relative_path = source_file.relative_to(PROJECT_ROOT)
+            violations.append(f"{relative_path}:{line_number}: {module_name}")
+
+    assert not violations, "Non-neutral contract imports found:\n" + "\n".join(violations)

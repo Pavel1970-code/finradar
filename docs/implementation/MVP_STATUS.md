@@ -1,6 +1,6 @@
 # FinRadar implementation status
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 ## Product direction
 
@@ -81,6 +81,22 @@ calculate amounts.
 - Backward-compatible reading of version 1 snapshots; new snapshots use schema
   version 2.
 - ADR for connector boundaries and regulatory network isolation.
+- Separate `finradar-monitor` process entry point with its own platform data
+  directory, `regulatory_monitor.db`, and public-package outbox.
+- Neutral standard-library-only `finradar_contracts` package shared across the
+  trust boundary without importing either runtime.
+- Strict one-way regulatory package format with byte/item limits, duplicate-key
+  rejection, source evidence links, public-data field controls, and canonical
+  SHA-256 integrity verification.
+- Exact official-source HTTPS allowlist for Matsne, Revenue Service, Ministry of
+  Finance, and National Bank hosts, including rejection of deceptive hostnames,
+  credentials, and non-standard ports.
+- Offline Core inbound validator that accepts JSON packages only and does not
+  activate imported candidates.
+- Dependency-direction tests proving that Core and Monitor do not import each
+  other, while Core remains free of network clients.
+- ADR-006 threat model separating the current development boundary from the OS
+  controls still required before network access can be enabled.
 
 ## Verification
 
@@ -91,7 +107,9 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 44 tests passed, including fiscal rule lifecycle,
+Latest result: Ruff passed; 59 tests passed, including the regulatory trust
+boundary, malformed/tampered package rejection, official-source policy, separate
+monitor storage, fiscal rule lifecycle,
 version supersession, immutable analysis history, fiscal applicability,
 calculation, reconciliation, migration, snapshot compatibility, immutability,
 penalty rate changes and gaps, conditional fines, stress scenarios, round-trip,
@@ -99,8 +117,13 @@ and UI smoke tests.
 
 ## Current limitations
 
-- Regulatory source documents and AI extraction candidates are not ingested yet;
-  the rule registry accepts structured candidates but has no monitoring adapter.
+- Regulatory network retrieval and AI extraction are not implemented yet. The
+  Monitor boundary, public storage, exchange contract, and Core validator exist,
+  but no real source is downloaded.
+- The development package currently exposes separate process entry points but is
+  not yet split into production Core/Monitor build artifacts.
+- Windows service identities, filesystem ACLs, outbound firewall enforcement,
+  package signatures, quarantine, and replay protection are not implemented.
 - The fiscal engine supports only a fictional percentage rule and is not a real
   tax implementation.
 - Penalty and fine structures are generic and tested only with fictional rules;
@@ -110,11 +133,13 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Add the table of accounting and generated fiscal events, including accrued,
-   calculated, and contingent consequences.
-2. Add a regulatory rule registry screen with lifecycle and source evidence.
-3. Extend readiness checks with source-level rejected records and connector
-   diagnostics.
-4. Add a synchronization and fiscal-analysis history screen.
-5. Add explicit company jurisdiction and tax-regime fields through a migration;
-   until then the current prototype correctly reports limited fiscal readiness.
+1. Split Core and Monitor into independently built Windows artifacts and enforce
+   distinct runtime identities, filesystem ACLs, and firewall policy.
+2. Add signed manifests, trusted-key rotation, package quarantine, replay
+   protection, and import audit history.
+3. Implement a constrained downloader that revalidates the allowlist after every
+   redirect, then connect one stable official Georgian source without AI.
+4. Map accepted public packages into the existing candidate-rule lifecycle and
+   add a source-evidence review screen.
+5. Add source-level rejected-record diagnostics and the user-facing data quality
+   report for accounting and bank inputs.

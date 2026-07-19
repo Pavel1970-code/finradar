@@ -34,6 +34,10 @@ Database encryption will be required before real financial data is imported.
 
 See [ADR-001: Local-only financial data](docs/architecture/ADR-001-local-only-data.md)
 
+The regulatory monitoring boundary and the production controls required before
+network access is enabled are defined in
+[ADR-006: Regulatory Monitor trust boundary](docs/architecture/ADR-006-regulatory-trust-boundary.md).
+
 ## Status
 
-Early desktop prototype under active developmen.
+Early desktop prototype under active development.
