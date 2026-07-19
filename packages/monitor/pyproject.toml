@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finradar-monitor"
+version = "0.1.0"
+description = "Isolated public regulatory monitor for FinRadar"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = ["finradar-contracts==0.1.0"]
+
+[project.scripts]
+finradar-monitor = "finradar_monitor.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["finradar_monitor", "finradar_monitor.*"]

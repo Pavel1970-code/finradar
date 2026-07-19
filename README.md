@@ -38,6 +38,12 @@ The regulatory monitoring boundary and the production controls required before
 network access is enabled are defined in
 [ADR-006: Regulatory Monitor trust boundary](docs/architecture/ADR-006-regulatory-trust-boundary.md).
 
+Core, the neutral boundary contracts, and Regulatory Monitor are maintained as
+three independent Python distributions under the repository root and
+`packages/`. Windows build and isolation inputs are documented in
+[`packaging/windows`](packaging/windows/README.md) and
+[`deployment/windows`](deployment/windows/README.md).
+
 ## Status
 
 Early desktop prototype under active development.

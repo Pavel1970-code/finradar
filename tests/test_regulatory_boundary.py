@@ -19,7 +19,7 @@ from finradar_contracts import (
     encode_regulatory_package,
 )
 from finradar_monitor.package_export import export_regulatory_package
-from finradar_monitor.paths import DATA_DIRECTORY_ENV, MonitorPaths
+from finradar_monitor.paths import DATA_DIRECTORY_ENV, OUTBOX_DIRECTORY_ENV, MonitorPaths
 from finradar_monitor.source_policy import SourcePolicyError, validate_official_source_url
 from finradar_monitor.storage import PublicDocument, RegulatoryStorage
 
@@ -154,6 +154,20 @@ def test_monitor_has_separate_storage_location(tmp_path: Path, monkeypatch) -> N
         }
     assert "company_id" not in columns
     assert "account_number" not in columns
+
+
+def test_monitor_outbox_can_be_an_acl_separated_exchange(tmp_path: Path, monkeypatch) -> None:
+    monitor_directory = tmp_path / "monitor-private"
+    exchange_directory = tmp_path / "one-way-exchange"
+    monkeypatch.setenv(DATA_DIRECTORY_ENV, str(monitor_directory))
+    monkeypatch.setenv(OUTBOX_DIRECTORY_ENV, str(exchange_directory))
+
+    paths = MonitorPaths.from_environment()
+    paths.create()
+
+    assert paths.database_path.parent == monitor_directory
+    assert paths.outbox_directory == exchange_directory
+    assert exchange_directory.is_dir()
 
 
 def test_monitor_export_is_accepted_by_core_inbox(tmp_path: Path) -> None:

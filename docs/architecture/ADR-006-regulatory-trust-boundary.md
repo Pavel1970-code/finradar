@@ -27,6 +27,11 @@ The solution is split into three dependency zones:
 3. `finradar_contracts` is a standard-library-only neutral contract package.
    It contains no runtime access to either component.
 
+These zones are now separate Python distributions. Core and Monitor each depend
+on the neutral contract wheel; neither wheel embeds the other runtime. Windows
+PyInstaller specifications perform dependency-graph checks during each build and
+do not use merged/mutually dependent executable bundles.
+
 There is no Core-to-Monitor API or request containing company context. The only
 planned exchange is a one-way, bounded JSON package:
 
@@ -64,6 +69,7 @@ requires a reviewed code change.
 | --- | --- |
 | Accidental financial-data egress | Core network-import policy; no Core-to-Monitor API; forbidden financial fields in packages |
 | Monitor reading the Core database | Separate storage API and dependency-direction tests |
+| Runtime accidentally packaged into the opposite executable | Separate distributions, wheel-content verifier, frozen dependency-graph assertions |
 | Malicious or deceptive source URL | Exact hostname allowlist, HTTPS-only, no credentials, port 443 only |
 | Redirect to an untrusted host | Policy requires revalidation after every redirect; downloader is not implemented yet |
 | Oversized or malformed inbound data | Byte and item limits, strict JSON shape, duplicate-key rejection |
@@ -71,20 +77,30 @@ requires a reviewed code change.
 | AI-generated rule entering a forecast | Candidate-only import plus deterministic registry lifecycle |
 | Public document containing active content | JSON-only exchange; no archive or executable import |
 
+## Deployment controls prepared but not yet Windows-verified
+
+- Windows build specifications create independent Core and Monitor directories
+  and fail on forbidden runtime dependencies. PyInstaller is not a
+  cross-compiler, so these builds still require a Windows runner.
+- Provisioning scripts create a dedicated non-admin Monitor identity and an S4U
+  scheduled task without retaining its generated password.
+- Protected ACL templates give Monitor no Core-data access, give Core no
+  Monitor-data access, and expose a separate Monitor-write/Core-read exchange.
+- Firewall templates block Core public-internet destinations while retaining
+  local accounting connectors. Monitor is blocked from local/intranet traffic,
+  inbound traffic, UDP internet traffic, and non-HTTPS internet ports.
+- Windows configuration and adversarial cross-identity tests must pass on the
+  supported release VM before these prepared controls are considered enforced.
+
 ## Controls still required before enabling network access
 
-- Build and install Core and Monitor as separate artifacts rather than relying
-  only on two entry points in the development package.
-- Run Monitor under a distinct Windows service or user identity.
-- Apply filesystem ACLs so Monitor cannot read the Core database and Core can
-  read only completed package files from the exchange directory.
-- Apply outbound firewall rules: deny Core; allow Monitor only to approved
-  destinations. Application allowlists remain a second layer, not a substitute.
 - Add package authenticity (signed manifest and trusted key rotation). SHA-256
   detects corruption but does not prove who produced a package.
 - Define quarantine, replay protection, retention, and failed-import audit logs.
-- Add an adversarial installer test proving Monitor cannot open a Core database
-  and Core cannot establish an outbound connection.
+- Code-sign both executables and the installer without storing signing keys in
+  source control.
+- Run the documented adversarial acceptance test proving Monitor cannot open a
+  Core database and Core cannot establish a public-internet connection.
 
 Network retrieval must remain disabled until these controls are implemented and
 verified on the target Windows packaging environment.
@@ -95,5 +111,6 @@ verified on the target Windows packaging environment.
 - Company context never needs to cross the internet boundary.
 - The user interface can still present one forecast action; process separation
   is an implementation detail and does not require manual file handling.
-- The development scaffold is a verifiable code/process/storage boundary, but
-  it is not yet the complete production physical boundary.
+- The repository now contains a verifiable code/process/storage/build boundary
+  and Windows provisioning inputs, but it is not a completed production physical
+  boundary until Windows acceptance tests and package authenticity pass.

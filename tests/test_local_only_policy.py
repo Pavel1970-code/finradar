@@ -6,8 +6,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 APPLICATION_ROOT = PROJECT_ROOT / "src" / "finradar"
-MONITOR_ROOT = PROJECT_ROOT / "src" / "finradar_monitor"
-CONTRACTS_ROOT = PROJECT_ROOT / "src" / "finradar_contracts"
+MONITOR_ROOT = PROJECT_ROOT / "packages" / "monitor" / "src" / "finradar_monitor"
+CONTRACTS_ROOT = PROJECT_ROOT / "packages" / "contracts" / "src" / "finradar_contracts"
 
 FORBIDDEN_IMPORTS = {
     "aiohttp",
@@ -162,3 +162,31 @@ def test_contracts_are_neutral_and_have_no_network_clients() -> None:
             violations.append(f"{relative_path}:{line_number}: {module_name}")
 
     assert not violations, "Non-neutral contract imports found:\n" + "\n".join(violations)
+
+
+def test_runtime_distributions_are_declared_separately() -> None:
+    core = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    contracts = tomllib.loads(
+        (PROJECT_ROOT / "packages" / "contracts" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    monitor = tomllib.loads(
+        (PROJECT_ROOT / "packages" / "monitor" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert core["project"]["name"] == "finradar"
+    assert core["project"]["scripts"] == {"finradar": "finradar.main:main"}
+    assert core["tool"]["setuptools"]["packages"]["find"]["include"] == [
+        "finradar",
+        "finradar.*",
+    ]
+    assert contracts["project"]["name"] == "finradar-contracts"
+    assert "dependencies" not in contracts["project"]
+    assert monitor["project"]["name"] == "finradar-monitor"
+    assert monitor["project"]["scripts"] == {
+        "finradar-monitor": "finradar_monitor.main:main"
+    }
+    assert monitor["project"]["dependencies"] == ["finradar-contracts==0.1.0"]

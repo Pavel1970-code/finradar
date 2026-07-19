@@ -1,16 +1,29 @@
+import sys
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from platformdirs import user_data_path
 from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIRECTORY = PROJECT_ROOT / "data"
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+RESOURCE_ROOT = (
+    Path(getattr(sys, "_MEIPASS")).resolve()
+    if IS_FROZEN
+    else PROJECT_ROOT
+)
+DATA_DIRECTORY = (
+    user_data_path("FinRadar", "FinRadar", roaming=False)
+    if IS_FROZEN
+    else PROJECT_ROOT / "data"
+)
 DATABASE_PATH = DATA_DIRECTORY / "finradar.db"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
-ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
+ALEMBIC_CONFIG_PATH = RESOURCE_ROOT / "alembic.ini"
+MIGRATIONS_DIRECTORY = RESOURCE_ROOT / "migrations"
 INITIAL_REVISION = "0001_initial"
 CORE_TABLES = {"companies", "cash_accounts", "cash_flow_items"}
 
@@ -48,6 +61,7 @@ def initialize_database() -> None:
 
 def migrate_database(target_engine: Engine) -> None:
     configuration = Config(str(ALEMBIC_CONFIG_PATH))
+    configuration.set_main_option("script_location", str(MIGRATIONS_DIRECTORY))
 
     with target_engine.begin() as connection:
         configuration.attributes["connection"] = connection

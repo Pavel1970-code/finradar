@@ -97,6 +97,18 @@ calculate amounts.
   other, while Core remains free of network clients.
 - ADR-006 threat model separating the current development boundary from the OS
   controls still required before network access can be enabled.
+- Three independent Python distributions: Core, neutral Contracts, and Monitor.
+  Actual wheel inspection proves that Core and Monitor do not embed each other.
+- Independent Windows PyInstaller specifications with build-time checks for
+  forbidden packages and Core networking binaries; no merged executable bundle.
+- Frozen-Core resource paths for bundled Alembic migrations and a mutable SQLite
+  path under the platform application-data directory.
+- Windows provisioning templates for a dedicated non-admin Monitor identity,
+  passwordless S4U scheduled execution, protected Core/Monitor/exchange ACLs,
+  and scoped firewall rules.
+- Separate configurable Monitor private-data and one-way exchange directories.
+- Windows post-provisioning checks for expected protected ACLs, principals,
+  firewall rules, and executable targets.
 
 ## Verification
 
@@ -107,7 +119,8 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 59 tests passed, including the regulatory trust
+Latest result: Ruff passed; 65 tests passed, including distribution manifests
+and wheel-boundary verification, the regulatory trust
 boundary, malformed/tampered package rejection, official-source policy, separate
 monitor storage, fiscal rule lifecycle,
 version supersession, immutable analysis history, fiscal applicability,
@@ -120,10 +133,11 @@ and UI smoke tests.
 - Regulatory network retrieval and AI extraction are not implemented yet. The
   Monitor boundary, public storage, exchange contract, and Core validator exist,
   but no real source is downloaded.
-- The development package currently exposes separate process entry points but is
-  not yet split into production Core/Monitor build artifacts.
-- Windows service identities, filesystem ACLs, outbound firewall enforcement,
-  package signatures, quarantine, and replay protection are not implemented.
+- Windows artifact specifications and provisioning scripts exist but have not
+  been executed on the supported Windows release VM. Therefore OS isolation is
+  prepared, not yet release-verified.
+- Executable/installer code signing, package signatures, quarantine, replay
+  protection, and import audit history are not implemented.
 - The fiscal engine supports only a fictional percentage rule and is not a real
   tax implementation.
 - Penalty and fine structures are generic and tested only with fictional rules;
@@ -133,8 +147,8 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Split Core and Monitor into independently built Windows artifacts and enforce
-   distinct runtime identities, filesystem ACLs, and firewall policy.
+1. Run the independent executable builds and the documented cross-identity
+   security acceptance suite on the supported Windows release VM.
 2. Add signed manifests, trusted-key rotation, package quarantine, replay
    protection, and import audit history.
 3. Implement a constrained downloader that revalidates the allowlist after every
