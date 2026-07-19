@@ -14,6 +14,7 @@ from finradar.domain.financial_snapshot import (
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
+    FinancialEventStatus,
     FinancialSnapshot,
 )
 from finradar.infrastructure.models import (
@@ -34,7 +35,7 @@ class PrototypeDatabaseConnector:
     def capabilities(self) -> ConnectorCapabilities:
         return ConnectorCapabilities(
             source_system="prototype-sqlite",
-            datasets=frozenset(DatasetKind),
+            datasets=_PROTOTYPE_DATASETS,
             supports_incremental_sync=False,
         )
 
@@ -51,7 +52,7 @@ class PrototypeDatabaseConnector:
                 return FinancialSnapshot(
                     source_system="prototype-sqlite",
                     captured_at=datetime.now(timezone.utc),
-                    available_datasets=frozenset(DatasetKind),
+                    available_datasets=_PROTOTYPE_DATASETS,
                     company=None,
                 )
 
@@ -75,7 +76,7 @@ class PrototypeDatabaseConnector:
         return FinancialSnapshot(
             source_system="prototype-sqlite",
             captured_at=datetime.now(timezone.utc),
-            available_datasets=frozenset(DatasetKind),
+            available_datasets=_PROTOTYPE_DATASETS,
             company=CompanyProfile(
                 external_id=company.id,
                 name=company.name,
@@ -108,6 +109,7 @@ class PrototypeDatabaseConnector:
                         if item.status == FlowStatus.SETTLED
                         else FinancialEventKind.PLANNED
                     ),
+                    status=FinancialEventStatus(item.status.value),
                     category=item.category,
                     account_external_id=item.account_id,
                 )
@@ -115,3 +117,6 @@ class PrototypeDatabaseConnector:
                 if item.status != FlowStatus.CANCELLED
             ),
         )
+
+
+_PROTOTYPE_DATASETS = frozenset(DatasetKind) - {DatasetKind.ACCOUNTING_FACTS}

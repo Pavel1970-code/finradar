@@ -7,11 +7,13 @@ from finradar.application.accounting_connector import (
 )
 from finradar.domain.financial_snapshot import (
     AccountBalance,
+    AccountingMetric,
     CompanyProfile,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
+    FinancialEventStatus,
     FinancialSnapshot,
 )
 
@@ -80,6 +82,7 @@ class DemoAccountingConnector:
                     due_date=self._as_of + timedelta(days=1),
                     direction=FinancialDirection.INFLOW,
                     kind=FinancialEventKind.PLANNED,
+                    status=FinancialEventStatus.CONFIRMED,
                     category="receivables",
                     account_external_id="demo-account",
                 ),
@@ -91,6 +94,7 @@ class DemoAccountingConnector:
                     due_date=self._as_of + timedelta(days=2),
                     direction=FinancialDirection.OUTFLOW,
                     kind=FinancialEventKind.PLANNED,
+                    status=FinancialEventStatus.CONFIRMED,
                     category="suppliers",
                     account_external_id="demo-account",
                 ),
@@ -105,6 +109,17 @@ class DemoAccountingConnector:
             available_datasets=self._available_datasets,
             company=company,
             balances=balances,
+            metrics=(
+                AccountingMetric(
+                    code="fictional_taxable_revenue",
+                    amount=Decimal("10000.00"),
+                    currency="GEL",
+                    period_start=self._as_of - timedelta(days=30),
+                    period_end=self._as_of - timedelta(days=1),
+                    source_reference="demo-ledger",
+                ),
+            )
+            if DatasetKind.ACCOUNTING_FACTS in self._available_datasets
+            else (),
             events=events,
         )
-

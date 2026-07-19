@@ -44,4 +44,3 @@ def test_synchronization_snapshot_round_trip_and_database_immutability(
                 ),
                 {"run_id": outcome.synchronization_run_id},
             )
-

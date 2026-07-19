@@ -4,6 +4,7 @@ from decimal import Decimal
 from finradar.application.synchronization_service import synchronize_and_forecast
 from finradar.domain.data_readiness import ReadinessStatus
 from finradar.domain.financial_snapshot import DatasetKind
+from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
 from finradar.infrastructure.connectors.demo import DemoAccountingConnector
 
 
@@ -50,3 +51,32 @@ def test_missing_balances_blocks_forecast() -> None:
     assert outcome.readiness.status is ReadinessStatus.BLOCKED
     assert outcome.forecast is None
 
+
+def test_synchronization_can_apply_active_fiscal_rule_to_connector_facts() -> None:
+    rule = PercentageFiscalRule(
+        rule_id="fictional-demo-tax",
+        version=1,
+        title="Fictional demo obligation",
+        jurisdiction="GE",
+        tax_regimes=frozenset({"fictional-demo-regime"}),
+        effective_from=date(2026, 1, 1),
+        effective_to=None,
+        base_metric_code="fictional_taxable_revenue",
+        rate=Decimal("0.10"),
+        payment_days_after_period_end=3,
+        obligation_category="fictional_tax",
+        source_reference="fictional-source",
+        status=FiscalRuleStatus.ACTIVE,
+    )
+
+    outcome = synchronize_and_forecast(
+        DemoAccountingConnector(as_of=AS_OF),
+        as_of=AS_OF,
+        fiscal_rules=(rule,),
+    )
+
+    assert outcome.forecast is not None
+    assert len(outcome.rule_analyses) == 1
+    obligation = outcome.rule_analyses[0].calculation.obligation
+    assert obligation is not None
+    assert obligation.amount == Decimal("1000.00")

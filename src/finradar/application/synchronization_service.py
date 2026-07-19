@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
 
+from finradar.application.analytical_service import RuleAnalysis, analyze_financial_risk
 from finradar.application.accounting_connector import (
     AccountingConnector,
     SynchronizationRequest,
@@ -12,12 +12,9 @@ from finradar.domain.data_readiness import (
     ReadinessStatus,
     assess_forecast_readiness,
 )
-from finradar.domain.financial_snapshot import (
-    FinancialDirection,
-    FinancialEventKind,
-    FinancialSnapshot,
-)
-from finradar.domain.forecast import ForecastEvent, ForecastResult, calculate_cash_forecast
+from finradar.domain.financial_snapshot import FinancialSnapshot
+from finradar.domain.fiscal import PercentageFiscalRule
+from finradar.domain.forecast import ForecastResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +23,7 @@ class SynchronizationOutcome:
     readiness: ReadinessReport
     forecast: ForecastResult | None
     synchronization_run_id: str | None = None
+    rule_analyses: tuple[RuleAnalysis, ...] = ()
 
 
 def synchronize_and_forecast(
@@ -34,6 +32,7 @@ def synchronize_and_forecast(
     as_of: date,
     horizon_days: int = 30,
     recorder: SynchronizationRecorder | None = None,
+    fiscal_rules: tuple[PercentageFiscalRule, ...] = (),
 ) -> SynchronizationOutcome:
     connector.test_connection()
     capabilities = connector.capabilities()
@@ -58,30 +57,17 @@ def synchronize_and_forecast(
             synchronization_run_id=synchronization_run_id,
         )
 
-    opening_balance = sum(
-        (balance.amount for balance in snapshot.balances),
-        start=Decimal("0.00"),
-    )
-    events = (
-        ForecastEvent(
-            due_date=event.due_date,
-            amount=event.amount,
-            is_inflow=event.direction is FinancialDirection.INFLOW,
-            reference=event.external_id,
-        )
-        for event in snapshot.events
-        if event.kind is FinancialEventKind.PLANNED
-    )
-    forecast = calculate_cash_forecast(
-        opening_balance=opening_balance,
-        start_date=as_of,
+    analytical_result = analyze_financial_risk(
+        snapshot,
+        fiscal_rules,
+        as_of=as_of,
         horizon_days=horizon_days,
-        events=events,
     )
 
     return SynchronizationOutcome(
         snapshot=snapshot,
         readiness=readiness,
-        forecast=forecast,
+        forecast=analytical_result.forecast,
         synchronization_run_id=synchronization_run_id,
+        rule_analyses=analytical_result.rule_analyses,
     )

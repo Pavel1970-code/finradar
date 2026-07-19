@@ -21,6 +21,13 @@ class FinancialDirection(str, Enum):
     OUTFLOW = "outflow"
 
 
+class FinancialEventStatus(str, Enum):
+    PLANNED = "planned"
+    CONFIRMED = "confirmed"
+    SETTLED = "settled"
+    CANCELLED = "cancelled"
+
+
 @dataclass(frozen=True, slots=True)
 class CompanyProfile:
     external_id: str
@@ -40,6 +47,16 @@ class AccountBalance:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountingMetric:
+    code: str
+    amount: Decimal
+    currency: str
+    period_start: date
+    period_end: date
+    source_reference: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class FinancialEvent:
     external_id: str
     title: str
@@ -48,6 +65,9 @@ class FinancialEvent:
     due_date: date
     direction: FinancialDirection
     kind: FinancialEventKind
+    status: FinancialEventStatus = FinancialEventStatus.PLANNED
+    settled_amount: Decimal = Decimal("0.00")
+    obligation_key: str | None = None
     category: str | None = None
     account_external_id: str | None = None
 
@@ -59,6 +79,7 @@ class FinancialSnapshot:
     available_datasets: frozenset[DatasetKind]
     company: CompanyProfile | None
     balances: tuple[AccountBalance, ...] = ()
+    metrics: tuple[AccountingMetric, ...] = ()
     events: tuple[FinancialEvent, ...] = ()
 
     def supplies(self, dataset: DatasetKind) -> bool:

@@ -121,6 +121,17 @@ def assess_forecast_readiness(
             )
         )
 
+    if not snapshot.supplies(DatasetKind.ACCOUNTING_FACTS):
+        issues.append(
+            DataIssue(
+                code="accounting_facts_unavailable",
+                severity=IssueSeverity.WARNING,
+                dataset=DatasetKind.ACCOUNTING_FACTS,
+                message="Accounting facts required for fiscal analysis are unavailable.",
+                impact="Fiscal obligations may remain unresolved.",
+            )
+        )
+
     if snapshot.company is not None:
         if snapshot.company.jurisdiction is None:
             issues.append(

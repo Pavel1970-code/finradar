@@ -5,16 +5,19 @@ from typing import Any
 
 from finradar.domain.financial_snapshot import (
     AccountBalance,
+    AccountingMetric,
     CompanyProfile,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
+    FinancialEventStatus,
     FinancialSnapshot,
 )
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 
 
 def encode_snapshot(snapshot: FinancialSnapshot) -> str:
@@ -25,6 +28,7 @@ def encode_snapshot(snapshot: FinancialSnapshot) -> str:
         "available_datasets": sorted(item.value for item in snapshot.available_datasets),
         "company": _company_to_dict(snapshot.company),
         "balances": [_balance_to_dict(item) for item in snapshot.balances],
+        "metrics": [_metric_to_dict(item) for item in snapshot.metrics],
         "events": [_event_to_dict(item) for item in snapshot.events],
     }
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -32,7 +36,8 @@ def encode_snapshot(snapshot: FinancialSnapshot) -> str:
 
 def decode_snapshot(content_json: str) -> FinancialSnapshot:
     payload: dict[str, Any] = json.loads(content_json)
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    schema_version = payload.get("schema_version")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError("Unsupported financial snapshot schema version.")
 
     company_payload = payload["company"]
@@ -64,6 +69,17 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
             )
             for item in payload["balances"]
         ),
+        metrics=tuple(
+            AccountingMetric(
+                code=item["code"],
+                amount=Decimal(item["amount"]),
+                currency=item["currency"],
+                period_start=date.fromisoformat(item["period_start"]),
+                period_end=date.fromisoformat(item["period_end"]),
+                source_reference=item["source_reference"],
+            )
+            for item in payload.get("metrics", [])
+        ),
         events=tuple(
             FinancialEvent(
                 external_id=item["external_id"],
@@ -73,6 +89,11 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
                 due_date=date.fromisoformat(item["due_date"]),
                 direction=FinancialDirection(item["direction"]),
                 kind=FinancialEventKind(item["kind"]),
+                status=FinancialEventStatus(
+                    item.get("status", FinancialEventStatus.PLANNED.value)
+                ),
+                settled_amount=Decimal(item.get("settled_amount", "0.00")),
+                obligation_key=item.get("obligation_key"),
                 category=item["category"],
                 account_external_id=item["account_external_id"],
             )
@@ -103,6 +124,17 @@ def _balance_to_dict(balance: AccountBalance) -> dict[str, str]:
     }
 
 
+def _metric_to_dict(metric: AccountingMetric) -> dict[str, str]:
+    return {
+        "code": metric.code,
+        "amount": str(metric.amount),
+        "currency": metric.currency,
+        "period_start": metric.period_start.isoformat(),
+        "period_end": metric.period_end.isoformat(),
+        "source_reference": metric.source_reference,
+    }
+
+
 def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
     return {
         "external_id": event.external_id,
@@ -112,7 +144,9 @@ def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
         "due_date": event.due_date.isoformat(),
         "direction": event.direction.value,
         "kind": event.kind.value,
+        "status": event.status.value,
+        "settled_amount": str(event.settled_amount),
+        "obligation_key": event.obligation_key,
         "category": event.category,
         "account_external_id": event.account_external_id,
     }
-

@@ -47,6 +47,18 @@ calculate amounts.
   SHA-256 integrity hashes, and database triggers preventing snapshot updates or
   deletion.
 - Snapshot decoding with integrity verification for later audit reproduction.
+- Canonical accounting metrics and payment-event statuses, settled amounts, and
+  stable fiscal obligation keys in connector snapshots.
+- Deterministic fiscal rule lifecycle and applicability outcomes: `applied`,
+  `not_applicable`, and `unresolved` with explicit missing fields.
+- Initial fictional percentage obligation calculation from a named accounting
+  metric, including rule version, source, formula explanation, and due date.
+- Reconciliation against existing, settled, partially paid, cancelled, and
+  duplicate payment-calendar events before they enter the cash forecast.
+- Unified analytical pipeline combining connector facts, fiscal obligations, and
+  the existing liquidity forecast.
+- Backward-compatible reading of version 1 snapshots; new snapshots use schema
+  version 2.
 - ADR for connector boundaries and regulatory network isolation.
 
 ## Verification
@@ -58,21 +70,27 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 17 tests passed, including migration, snapshot
-immutability, round-trip, and UI smoke tests.
+Latest result: Ruff passed; 29 tests passed, including fiscal applicability,
+calculation, reconciliation, migration, snapshot compatibility, immutability,
+round-trip, and UI smoke tests.
 
 ## Current limitations
 
 - No regulatory document, candidate-rule, reviewed-rule, or active-rule models
-  exist yet.
+  are persisted yet; fiscal rules currently exist only as domain inputs.
+- The fiscal engine supports only a fictional percentage rule and is not a real
+  tax implementation.
 - No network access has been added.
 - No concrete 1C adapter has been selected or implemented.
 
 ## Next implementation slice
 
-1. Extend readiness checks with source-level rejected records and connector
+1. Persist versioned fiscal rules and their lifecycle without allowing candidate
+   rules into calculations.
+2. Add the table of accounting and generated fiscal events and make forecast
+   causes visible.
+3. Extend readiness checks with source-level rejected records and connector
    diagnostics.
-2. Add the table of source events and make forecast causes visible.
-3. Add a synchronization-history screen backed by the persisted runs.
-4. Add explicit company jurisdiction and tax-regime fields through a migration;
+4. Add a synchronization-history screen backed by the persisted runs.
+5. Add explicit company jurisdiction and tax-regime fields through a migration;
    until then the current prototype correctly reports limited fiscal readiness.
