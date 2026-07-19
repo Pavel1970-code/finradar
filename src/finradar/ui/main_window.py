@@ -175,8 +175,13 @@ class MainWindow(QMainWindow):
             for issue in report.issues:
                 marker = "Ошибка" if issue.severity is IssueSeverity.ERROR else "Ограничение"
                 message, impact = _localized_issue(issue.code, issue.message, issue.impact)
+                source_reference = (
+                    f"\nЗапись источника: {issue.source_reference}"
+                    if issue.source_reference
+                    else ""
+                )
                 issue_label = QLabel(
-                    f"{marker}: {message}\nВлияние: {impact}"
+                    f"{marker}: {message}\nВлияние: {impact}{source_reference}"
                 )
                 issue_label.setObjectName(
                     "readinessError"
@@ -437,10 +442,18 @@ def _dataset_label(dataset: DatasetKind) -> str:
         DatasetKind.ACCOUNT_BALANCES: "остатки",
         DatasetKind.ACCOUNTING_FACTS: "учётные факты",
         DatasetKind.PAYMENT_CALENDAR: "платёжный календарь",
+        DatasetKind.BANK_TRANSACTIONS: "банковские операции",
     }[dataset]
 
 
 def _localized_issue(code: str, message: str, impact: str) -> tuple[str, str]:
+    if code in {
+        "bank_coverage_stale",
+        "bank_transactions_missing_in_accounting",
+        "bank_reconciliation_ambiguous",
+        "bank_reconciliation_conflict",
+    }:
+        return message, impact
     translations = {
         "company_profile_missing": (
             "Источник не передал профиль компании.",
@@ -481,6 +494,70 @@ def _localized_issue(code: str, message: str, impact: str) -> tuple[str, str]:
         "tax_regime_missing": (
             "Не указан налоговый режим компании.",
             "Нельзя надёжно рассчитать налоговые обязательства и льготы.",
+        ),
+        "one_c_company_mapping_failed": (
+            "Карточка компании из 1С заполнена или сопоставлена не полностью.",
+            "Нельзя надёжно определить компанию и применимые налоговые правила.",
+        ),
+        "one_c_balance_mapping_failed": (
+            "Одна из записей об остатках из 1С не прошла проверку.",
+            "Запись исключена; начальный остаток может быть неполным.",
+        ),
+        "one_c_metric_mapping_failed": (
+            "Один из бухгалтерских показателей из 1С не прошёл проверку.",
+            "Некоторые налоговые обязательства могут остаться нерассчитанными.",
+        ),
+        "one_c_accounting_event_mapping_failed": (
+            "Одна из фактических операций 1С не прошла проверку.",
+            "Фактические поступления или расходы могут быть отражены не полностью.",
+        ),
+        "one_c_payment_event_mapping_failed": (
+            "Одна из записей платёжного календаря 1С не прошла проверку.",
+            "Прогноз будущих поступлений и расходов может быть неполным.",
+        ),
+        "bank_transactions_unavailable": (
+            "Банковские операции недоступны.",
+            "Нельзя сверить последние поступления и расходы с бухгалтерией.",
+        ),
+        "bank_statements_empty": (
+            "Банк не передал ни одной выписки.",
+            "Нельзя подтвердить последние движения денежных средств.",
+        ),
+        "bank_coverage_stale": (
+            "Банковская информация не охватывает последние дни.",
+            "В прогнозе могут отсутствовать недавние поступления или расходы.",
+        ),
+        "bank_transactions_missing_in_accounting": (
+            "В банке обнаружены операции, отсутствующие в бухгалтерских данных.",
+            "Расходы или поступления могли быть не внесены бухгалтером.",
+        ),
+        "bank_reconciliation_ambiguous": (
+            "Для некоторых банковских операций найдено несколько соответствий.",
+            "FinRadar не выбирает неоднозначное соответствие автоматически.",
+        ),
+        "bank_reconciliation_conflict": (
+            "Связанные банковские и бухгалтерские записи расходятся по значениям.",
+            "Перед надёжным анализом необходимо исправить конфликтующие записи.",
+        ),
+        "bank_statement_balance_mismatch": (
+            "Операции выписки не сходятся с её конечным остатком.",
+            "Выписка может быть неполной или содержать неподдерживаемый тип операции.",
+        ),
+        "bank_accounting_balance_mismatch": (
+            "Остаток банка отличается от остатка бухгалтерии на ту же дату.",
+            "Начальная денежная позиция требует сверки.",
+        ),
+        "bank_duplicate_transaction": (
+            "В банковской выписке обнаружена повторная операция.",
+            "Повтор исключён из сверки.",
+        ),
+        "bank_transaction_id_derived": (
+            "У банковской операции отсутствует стабильный идентификатор.",
+            "FinRadar создал технический идентификатор; предпочтителен ID банка.",
+        ),
+        "bank_row_mapping_failed": (
+            "Одна из строк банковской выписки не прошла проверку.",
+            "Строка исключена; сверка с бухгалтерией может быть неполной.",
         ),
     }
     return translations.get(code, (message, impact))

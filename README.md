@@ -48,6 +48,11 @@ Signed regulatory ingestion, trusted-key rotation, quarantine, and replay
 protection are defined in
 [ADR-007: Signed regulatory package ingestion](docs/architecture/ADR-007-signed-regulatory-ingestion.md).
 
+The read-only 1C adapter shell, canonical bank batches, deterministic bank-to-
+accounting reconciliation, and the network decision for future bank APIs are
+defined in
+[ADR-008: Local integration SDK](docs/architecture/ADR-008-local-integration-sdk.md).
+
 ## Status
 
 Early desktop prototype under active development.

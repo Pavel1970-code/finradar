@@ -7,6 +7,20 @@ from finradar.application.accounting_connector import (
     AccountingConnector,
     SynchronizationRequest,
 )
+from finradar.application.bank_connector import (
+    BankConnector,
+    BankSynchronizationRecorder,
+    BankSynchronizationRequest,
+)
+from finradar.application.bank_reconciliation import (
+    BankReconciliationReport,
+    attach_bank_reconciliation,
+    reconcile_bank_batch,
+)
+from finradar.application.integration_sdk import (
+    validate_accounting_snapshot,
+    validate_bank_batch,
+)
 from finradar.application.synchronization_history import SynchronizationRecorder
 from finradar.domain.data_readiness import (
     ReadinessReport,
@@ -34,6 +48,8 @@ class SynchronizationOutcome:
     stress_forecast: ForecastResult | None = None
     consequences: tuple[FiscalConsequence, ...] = ()
     fiscal_analysis_run_id: str | None = None
+    bank_reconciliation: BankReconciliationReport | None = None
+    bank_synchronization_run_id: str | None = None
 
 
 def synchronize_and_forecast(
@@ -48,17 +64,36 @@ def synchronize_and_forecast(
     violation_events: tuple[ViolationEvent, ...] = (),
     stress_overdue_days: int = 0,
     analysis_recorder: FiscalAnalysisRecorder | None = None,
+    synchronization_request: SynchronizationRequest | None = None,
+    bank_connector: BankConnector | None = None,
+    bank_recorder: BankSynchronizationRecorder | None = None,
+    bank_request: BankSynchronizationRequest | None = None,
 ) -> SynchronizationOutcome:
     connector.test_connection()
     capabilities = connector.capabilities()
-    snapshot = connector.synchronize(SynchronizationRequest())
-
-    if snapshot.source_system != capabilities.source_system:
-        raise ValueError("Connector returned a snapshot for another source system.")
-
-    undeclared_datasets = snapshot.available_datasets - capabilities.datasets
-    if undeclared_datasets:
-        raise ValueError("Connector returned datasets that it did not declare.")
+    snapshot = validate_accounting_snapshot(
+        capabilities,
+        connector.synchronize(synchronization_request or SynchronizationRequest()),
+    )
+    bank_reconciliation = None
+    bank_synchronization_run_id = None
+    if bank_connector is not None:
+        bank_connector.test_connection()
+        bank_capabilities = bank_connector.capabilities()
+        bank_batch = validate_bank_batch(
+            bank_capabilities,
+            bank_connector.synchronize(bank_request or BankSynchronizationRequest()),
+        )
+        bank_synchronization_run_id = (
+            bank_recorder.record(bank_batch) if bank_recorder is not None else None
+        )
+        bank_reconciliation = reconcile_bank_batch(snapshot, bank_batch, as_of=as_of)
+        snapshot = attach_bank_reconciliation(
+            snapshot,
+            bank_batch,
+            bank_reconciliation,
+            synchronization_run_id=bank_synchronization_run_id,
+        )
 
     readiness = assess_forecast_readiness(snapshot, as_of=as_of)
     synchronization_run_id = (
@@ -70,6 +105,8 @@ def synchronize_and_forecast(
             readiness=readiness,
             forecast=None,
             synchronization_run_id=synchronization_run_id,
+            bank_reconciliation=bank_reconciliation,
+            bank_synchronization_run_id=bank_synchronization_run_id,
         )
 
     analytical_result = analyze_financial_risk(
@@ -102,4 +139,6 @@ def synchronize_and_forecast(
         stress_forecast=analytical_result.stress_forecast,
         consequences=analytical_result.consequences,
         fiscal_analysis_run_id=fiscal_analysis_run_id,
+        bank_reconciliation=bank_reconciliation,
+        bank_synchronization_run_id=bank_synchronization_run_id,
     )

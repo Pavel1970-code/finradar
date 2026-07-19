@@ -13,11 +13,14 @@ from finradar.domain.financial_snapshot import (
     FinancialEventKind,
     FinancialEventStatus,
     FinancialSnapshot,
+    IntegrationReference,
+    SourceDataIssue,
+    SourceIssueSeverity,
 )
 
 
-SCHEMA_VERSION = 2
-SUPPORTED_SCHEMA_VERSIONS = {1, 2}
+SCHEMA_VERSION = 3
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3}
 
 
 def encode_snapshot(snapshot: FinancialSnapshot) -> str:
@@ -30,6 +33,12 @@ def encode_snapshot(snapshot: FinancialSnapshot) -> str:
         "balances": [_balance_to_dict(item) for item in snapshot.balances],
         "metrics": [_metric_to_dict(item) for item in snapshot.metrics],
         "events": [_event_to_dict(item) for item in snapshot.events],
+        "source_issues": [_source_issue_to_dict(item) for item in snapshot.source_issues],
+        "source_cursor": snapshot.source_cursor,
+        "integration_references": [
+            _integration_reference_to_dict(item)
+            for item in snapshot.integration_references
+        ],
     }
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -98,8 +107,31 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
                 fiscal_consequence_type=item.get("fiscal_consequence_type"),
                 category=item["category"],
                 account_external_id=item["account_external_id"],
+                source_reference=item.get("source_reference", ""),
+                bank_transaction_id=item.get("bank_transaction_id"),
             )
             for item in payload["events"]
+        ),
+        source_issues=tuple(
+            SourceDataIssue(
+                code=item["code"],
+                severity=SourceIssueSeverity(item["severity"]),
+                dataset=DatasetKind(item["dataset"]),
+                message=item["message"],
+                impact=item["impact"],
+                source_reference=item.get("source_reference", ""),
+            )
+            for item in payload.get("source_issues", [])
+        ),
+        source_cursor=payload.get("source_cursor"),
+        integration_references=tuple(
+            IntegrationReference(
+                connector_kind=item["connector_kind"],
+                source_system=item["source_system"],
+                synchronization_run_id=item["synchronization_run_id"],
+                cursor=item.get("cursor"),
+            )
+            for item in payload.get("integration_references", [])
         ),
     )
 
@@ -153,4 +185,28 @@ def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
         "fiscal_consequence_type": event.fiscal_consequence_type,
         "category": event.category,
         "account_external_id": event.account_external_id,
+        "source_reference": event.source_reference,
+        "bank_transaction_id": event.bank_transaction_id,
+    }
+
+
+def _source_issue_to_dict(issue: SourceDataIssue) -> dict[str, str]:
+    return {
+        "code": issue.code,
+        "severity": issue.severity.value,
+        "dataset": issue.dataset.value,
+        "message": issue.message,
+        "impact": issue.impact,
+        "source_reference": issue.source_reference,
+    }
+
+
+def _integration_reference_to_dict(
+    reference: IntegrationReference,
+) -> dict[str, str | None]:
+    return {
+        "connector_kind": reference.connector_kind,
+        "source_system": reference.source_system,
+        "synchronization_run_id": reference.synchronization_run_id,
+        "cursor": reference.cursor,
     }

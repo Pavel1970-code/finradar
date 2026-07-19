@@ -78,8 +78,8 @@ calculate amounts.
 - Immutable fiscal-analysis history linked to source synchronization runs and
   containing primary/stress forecasts, applicability, reconciliation,
   consequences, horizon, and algorithm version.
-- Backward-compatible reading of version 1 snapshots; new snapshots use schema
-  version 2.
+- Backward-compatible reading of version 1 and 2 snapshots; new snapshots use
+  schema version 3 with source issues, cursors, bank links, and event provenance.
 - ADR for connector boundaries and regulatory network isolation.
 - Separate `finradar-monitor` process entry point with its own platform data
   directory, `regulatory_monitor.db`, and public-package outbox.
@@ -136,8 +136,25 @@ calculate amounts.
   startup against the Core-owned regulatory archive.
 - Windows trust-initialization orchestration plus real cross-identity filesystem
   probes using the configured Core identity and Monitor S4U task.
-- Additive migrations `0004` through `0006`; the prototype database is at
-  `0006_trust_bootstrap` with its existing company and eight cash-flow records
+- Local Integration SDK enforcing read-only accounting/bank capabilities,
+  declared datasets, source identity, stable IDs, finite amounts, timezone-aware
+  capture times, and bounded cursors before analysis.
+- Read-only 1C adapter shell with an injected transport, mapping profile,
+  full/incremental request support, separate accounting facts and payment
+  calendar, per-record rejection diagnostics, and a deterministic fixture
+  transport.
+- Canonical bank transaction, statement, and synchronization-batch models with
+  provider IDs, value/booking dates, status, account, counterparty, and source
+  provenance.
+- Bounded local CSV bank adapter with configurable columns, duplicate removal,
+  derived-ID diagnostics, malformed-row reporting, and symbolic-link rejection.
+- Deterministic bank-to-accounting reconciliation using provider IDs first and
+  unique exact-field matching second; missing, ambiguous, conflicting, stale,
+  and balance-mismatch states enter the preflight report and are never guessed.
+- Immutable local bank synchronization history with canonical JSON, SHA-256
+  verification, cursors, and links from the accounting snapshot to the bank run.
+- Additive migrations `0004` through `0007`; the prototype database is at
+  `0007_integration_sdk` with its existing company and eight cash-flow records
   preserved.
 
 ## Verification
@@ -149,7 +166,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 88 tests passed, including Ed25519 tamper rejection,
+Latest result: Ruff passed; 99 tests passed, including Ed25519 tamper rejection,
 key rotation and revocation, package expiry, quarantine, replay protection,
 immutable import audit, archive-integrity verification, distribution manifests
 and wheel-boundary verification, the regulatory trust
@@ -179,7 +196,13 @@ and UI smoke tests.
 - Penalty and fine structures are generic and tested only with fictional rules;
   no real jurisdictional formula has been activated.
 - No network access has been added.
-- No concrete 1C adapter has been selected or implemented.
+- The 1C contract, mapper, and fixture transport exist, but no concrete 1C
+  configuration or COM/file/local-sidecar transport has been selected.
+- Bank CSV ingestion and reconciliation exist, but MT940, CAMT.053, XLSX, and
+  provider-specific bank adapters are not implemented.
+- Automatic bank API access is intentionally not authorized yet because it
+  would handle company data while using the internet and therefore needs its own
+  isolated threat model.
 
 ## Next implementation slice
 
@@ -188,9 +211,11 @@ and UI smoke tests.
    release VM.
 2. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
    prototype decision).
-3. Implement a constrained downloader that revalidates the allowlist after every
+3. Select the first target 1C configuration and implement one read-only local
+   transport plus its mapping profile and golden fixture export.
+4. Select the first bank statement format/provider and add its adapter with
+   golden reconciliation fixtures.
+5. Implement a constrained downloader that revalidates the allowlist after every
    redirect, then connect one stable official Georgian source without AI.
-4. Map accepted public packages into the existing candidate-rule lifecycle and
+6. Map accepted public packages into the existing candidate-rule lifecycle and
    add a source-evidence review screen.
-5. Add source-level rejected-record diagnostics and the user-facing data quality
-   report for accounting and bank inputs.

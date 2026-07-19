@@ -2,7 +2,11 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
-from finradar.domain.financial_snapshot import DatasetKind, FinancialSnapshot
+from finradar.domain.financial_snapshot import (
+    DatasetKind,
+    FinancialSnapshot,
+    SourceIssueSeverity,
+)
 
 
 class ReadinessStatus(str, Enum):
@@ -23,6 +27,7 @@ class DataIssue:
     dataset: DatasetKind
     message: str
     impact: str
+    source_reference: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +43,22 @@ def assess_forecast_readiness(
     maximum_balance_age_days: int = 1,
 ) -> ReadinessReport:
     issues: list[DataIssue] = []
+
+    issues.extend(
+        DataIssue(
+            code=issue.code,
+            severity=(
+                IssueSeverity.ERROR
+                if issue.severity is SourceIssueSeverity.ERROR
+                else IssueSeverity.WARNING
+            ),
+            dataset=issue.dataset,
+            message=issue.message,
+            impact=issue.impact,
+            source_reference=issue.source_reference,
+        )
+        for issue in snapshot.source_issues
+    )
 
     if not snapshot.supplies(DatasetKind.COMPANY_PROFILE) or snapshot.company is None:
         issues.append(

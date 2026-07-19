@@ -9,6 +9,12 @@ class DatasetKind(str, Enum):
     ACCOUNT_BALANCES = "account_balances"
     ACCOUNTING_FACTS = "accounting_facts"
     PAYMENT_CALENDAR = "payment_calendar"
+    BANK_TRANSACTIONS = "bank_transactions"
+
+
+class SourceIssueSeverity(str, Enum):
+    WARNING = "warning"
+    ERROR = "error"
 
 
 class FinancialEventKind(str, Enum):
@@ -57,6 +63,24 @@ class AccountingMetric:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceDataIssue:
+    code: str
+    severity: SourceIssueSeverity
+    dataset: DatasetKind
+    message: str
+    impact: str
+    source_reference: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrationReference:
+    connector_kind: str
+    source_system: str
+    synchronization_run_id: str
+    cursor: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class FinancialEvent:
     external_id: str
     title: str
@@ -72,6 +96,8 @@ class FinancialEvent:
     fiscal_consequence_type: str | None = None
     category: str | None = None
     account_external_id: str | None = None
+    source_reference: str = ""
+    bank_transaction_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +109,9 @@ class FinancialSnapshot:
     balances: tuple[AccountBalance, ...] = ()
     metrics: tuple[AccountingMetric, ...] = ()
     events: tuple[FinancialEvent, ...] = ()
+    source_issues: tuple[SourceDataIssue, ...] = ()
+    source_cursor: str | None = None
+    integration_references: tuple[IntegrationReference, ...] = ()
 
     def supplies(self, dataset: DatasetKind) -> bool:
         return dataset in self.available_datasets

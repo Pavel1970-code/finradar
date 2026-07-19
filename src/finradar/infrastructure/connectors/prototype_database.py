@@ -119,4 +119,10 @@ class PrototypeDatabaseConnector:
         )
 
 
-_PROTOTYPE_DATASETS = frozenset(DatasetKind) - {DatasetKind.ACCOUNTING_FACTS}
+_PROTOTYPE_DATASETS = frozenset(
+    {
+        DatasetKind.COMPANY_PROFILE,
+        DatasetKind.ACCOUNT_BALANCES,
+        DatasetKind.PAYMENT_CALENDAR,
+    }
+)

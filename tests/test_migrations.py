@@ -12,6 +12,8 @@ EXPECTED_TABLES = {
     "cash_accounts",
     "cash_flow_items",
     "companies",
+    "bank_statement_snapshots",
+    "bank_synchronization_runs",
     "fiscal_analysis_runs",
     "fiscal_rule_lifecycle_events",
     "fiscal_rule_versions",
@@ -39,7 +41,7 @@ def test_new_database_is_created_at_head(tmp_path: Path) -> None:
     assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0006_trust_bootstrap"
+            "0007_integration_sdk"
         )
 
 
@@ -64,5 +66,5 @@ def test_existing_prototype_database_is_baselined_without_data_loss(tmp_path: Pa
             "Fictional Company"
         )
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0006_trust_bootstrap"
+            "0007_integration_sdk"
         )

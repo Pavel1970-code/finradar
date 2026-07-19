@@ -319,6 +319,48 @@ class RegulatoryArchiveEvent(Base):
     )
 
 
+class BankSynchronizationRun(Base):
+    __tablename__ = "bank_synchronization_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    source_system: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    available: Mapped[int] = mapped_column(Integer, nullable=False)
+    statement_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    transaction_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    issue_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    next_cursor: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    snapshot: Mapped[BankStatementSnapshot] = relationship(
+        back_populates="run",
+        uselist=False,
+        cascade="save-update, merge",
+    )
+
+
+class BankStatementSnapshot(Base):
+    __tablename__ = "bank_statement_snapshots"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    bank_synchronization_run_id: Mapped[str] = mapped_column(
+        ForeignKey("bank_synchronization_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    run: Mapped[BankSynchronizationRun] = relationship(back_populates="snapshot")
+
+
 class CashAccount(Base):
     __tablename__ = "cash_accounts"
 

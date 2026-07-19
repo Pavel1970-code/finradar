@@ -18,7 +18,14 @@ from finradar.domain.financial_snapshot import (
 )
 
 
-ALL_DATASETS = frozenset(DatasetKind)
+ALL_DATASETS = frozenset(
+    {
+        DatasetKind.COMPANY_PROFILE,
+        DatasetKind.ACCOUNT_BALANCES,
+        DatasetKind.ACCOUNTING_FACTS,
+        DatasetKind.PAYMENT_CALENDAR,
+    }
+)
 
 
 class DemoAccountingConnector:

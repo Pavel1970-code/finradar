@@ -10,11 +10,13 @@ class ConnectorCapabilities:
     source_system: str
     datasets: frozenset[DatasetKind]
     supports_incremental_sync: bool
+    read_only: bool = True
 
 
 @dataclass(frozen=True, slots=True)
 class SynchronizationRequest:
     since: datetime | None = None
+    cursor: str | None = None
 
 
 class AccountingConnector(Protocol):
@@ -23,4 +25,3 @@ class AccountingConnector(Protocol):
     def test_connection(self) -> None: ...
 
     def synchronize(self, request: SynchronizationRequest) -> FinancialSnapshot: ...
-
