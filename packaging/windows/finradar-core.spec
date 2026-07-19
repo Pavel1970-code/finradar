@@ -38,6 +38,10 @@ analysis = Analysis(
     datas=[
         (str(PROJECT_ROOT / "alembic.ini"), "."),
         (str(PROJECT_ROOT / "migrations"), "migrations"),
+        (
+            str(PROJECT_ROOT / "src" / "finradar" / "demo" / "scenarios"),
+            "finradar/demo/scenarios",
+        ),
     ],
     hiddenimports=[],
     hookspath=[],

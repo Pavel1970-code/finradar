@@ -55,7 +55,20 @@ defined in
 
 ## Status
 
-Early desktop prototype under active development.
+The first offline MVP vertical slice runs on bundled, explicitly fictional data.
+It opens without seeding the prototype tables; press **Дать прогноз** to run the
+accounting snapshot, bank reconciliation, fictional fiscal rules, deterministic
+forecast, stress calculation, and local audit-history pipeline.
+
+From an activated development environment:
+
+```bash
+finradar
+```
+
+The bundled scenario is fixed to a documented analysis date so repeated runs
+produce the same numerical result. It is not a real fiscal calculation and must
+not be used with company data.
 
 A function-by-function factual description of the current implementation,
 including test evidence, Windows status, missing components, and known risks, is

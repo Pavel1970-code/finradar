@@ -36,6 +36,9 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["finradar", "finradar.*"]
 
+[tool.setuptools.package-data]
+finradar = ["demo/scenarios/*.json"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"

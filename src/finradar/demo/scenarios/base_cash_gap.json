@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "scenario_id": "base_cash_gap",
+  "scenario_version": 1,
+  "payload_sha256": "e3ecc6c06ec590473f05c59232f547e750a4a4103d04579444ba3b627b51caad",
+  "payload": {
+    "title": "Базовый кассовый разрыв — вымышленный сценарий",
+    "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
+    "as_of": "2026-07-18",
+    "horizon_days": 30,
+    "stress_overdue_days": 5,
+    "accounting": {
+      "source_system": "demo-accounting:base_cash_gap:v1",
+      "captured_at": "2026-07-18T09:00:00+04:00",
+      "available_datasets": [
+        "company_profile",
+        "account_balances",
+        "accounting_facts",
+        "payment_calendar"
+      ],
+      "company": {
+        "external_id": "fictional-company-base",
+        "name": "ООО «Демо Орбита» — вымышленная компания",
+        "base_currency": "GEL",
+        "jurisdiction": "XX-DEMO",
+        "tax_regime": "fictional-base-regime"
+      },
+      "balances": [
+        {
+          "external_id": "fictional-operating-account",
+          "name": "Вымышленный операционный счёт",
+          "currency": "GEL",
+          "amount": "5000.00",
+          "balance_date": "2026-07-18"
+        }
+      ],
+      "metrics": [
+        {
+          "code": "fictional_taxable_revenue",
+          "amount": "20000.00",
+          "currency": "GEL",
+          "period_start": "2026-06-18",
+          "period_end": "2026-07-17",
+          "source_reference": "fictional-ledger:revenue:2026-07"
+        }
+      ],
+      "events": [
+        {
+          "external_id": "fictional-accounting-receipt-001",
+          "title": "Вымышленное поступление по банковской выписке",
+          "amount": "1000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-17",
+          "direction": "inflow",
+          "kind": "fact",
+          "status": "settled",
+          "settled_amount": "1000.00",
+          "category": "customer_receipt",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-ledger:bank:001",
+          "bank_transaction_id": "fictional-bank-credit-001"
+        },
+        {
+          "external_id": "fictional-accounting-expense-001",
+          "title": "Вымышленный расход по банковской выписке",
+          "amount": "500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-18",
+          "direction": "outflow",
+          "kind": "fact",
+          "status": "settled",
+          "settled_amount": "500.00",
+          "category": "operating_expense",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-ledger:bank:002",
+          "bank_transaction_id": "fictional-bank-debit-001"
+        },
+        {
+          "external_id": "fictional-planned-receipt-001",
+          "title": "Ожидаемая оплата от вымышленного покупателя",
+          "amount": "1500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-19",
+          "direction": "inflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "receivables",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-payment-calendar:001"
+        },
+        {
+          "external_id": "fictional-supplier-payment-001",
+          "title": "Оплата вымышленному поставщику",
+          "amount": "4200.00",
+          "currency": "GEL",
+          "due_date": "2026-07-20",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "suppliers",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-payment-calendar:002"
+        },
+        {
+          "external_id": "fictional-payroll-001",
+          "title": "Вымышленная выплата заработной платы",
+          "amount": "3000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-23",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "payroll",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-payment-calendar:003"
+        }
+      ],
+      "source_issues": [],
+      "source_cursor": "demo:base_cash_gap:v1"
+    },
+    "bank": {
+      "source_system": "demo-bank:base_cash_gap:v1",
+      "captured_at": "2026-07-18T09:05:00+04:00",
+      "available": true,
+      "statements": [
+        {
+          "statement_id": "fictional-statement-2026-07-18",
+          "account_external_id": "fictional-operating-account",
+          "period_start": "2026-07-17",
+          "period_end": "2026-07-18",
+          "opening_balance": "4500.00",
+          "closing_balance": "5000.00",
+          "transactions": [
+            {
+              "external_id": "fictional-bank-credit-001",
+              "account_external_id": "fictional-operating-account",
+              "booking_date": "2026-07-17",
+              "value_date": "2026-07-17",
+              "direction": "credit",
+              "amount": "1000.00",
+              "currency": "GEL",
+              "description": "Вымышленное поступление",
+              "reference": "DEMO-IN-001",
+              "status": "booked",
+              "counterparty_name": "Вымышленный покупатель",
+              "counterparty_account": "DEMO-CUSTOMER-ACCOUNT",
+              "source_reference": "fictional-bank-statement:1"
+            },
+            {
+              "external_id": "fictional-bank-debit-001",
+              "account_external_id": "fictional-operating-account",
+              "booking_date": "2026-07-18",
+              "value_date": "2026-07-18",
+              "direction": "debit",
+              "amount": "500.00",
+              "currency": "GEL",
+              "description": "Вымышленный операционный расход",
+              "reference": "DEMO-OUT-001",
+              "status": "booked",
+              "counterparty_name": "Вымышленный контрагент",
+              "counterparty_account": "DEMO-SUPPLIER-ACCOUNT",
+              "source_reference": "fictional-bank-statement:2"
+            }
+          ]
+        }
+      ],
+      "source_issues": [],
+      "next_cursor": "demo-bank:base_cash_gap:v1"
+    },
+    "fiscal_rules": [
+      {
+        "rule_id": "fictional-base-tax",
+        "version": 1,
+        "title": "Вымышленный налог с расчётной базы",
+        "jurisdiction": "XX-DEMO",
+        "tax_regimes": ["fictional-base-regime"],
+        "effective_from": "2026-01-01",
+        "effective_to": null,
+        "base_metric_code": "fictional_taxable_revenue",
+        "rate": "0.05",
+        "payment_days_after_period_end": 3,
+        "obligation_category": "fictional_tax",
+        "source_reference": "fictional-public-document:base-tax:v1"
+      }
+    ],
+    "penalty_rules": [
+      {
+        "rule_id": "fictional-base-penalty",
+        "version": 1,
+        "applies_to_obligation_rule_id": "fictional-base-tax",
+        "grace_days": 0,
+        "rate_periods": [
+          {
+            "effective_from": "2026-01-01",
+            "effective_to": null,
+            "daily_rate": "0.001"
+          }
+        ],
+        "source_reference": "fictional-public-document:base-penalty:v1"
+      }
+    ],
+    "fine_rules": [],
+    "violation_events": [],
+    "expected": {
+      "readiness_status": "ready",
+      "opening_balance": "5000.00",
+      "closing_balance": "-1700.00",
+      "minimum_balance": "-1700.00",
+      "first_gap_date": "2026-07-23",
+      "required_funding": "1700.00",
+      "fiscal_obligation_amount": "1000.00",
+      "stress_minimum_balance": "-1705.00"
+    }
+  }
+}

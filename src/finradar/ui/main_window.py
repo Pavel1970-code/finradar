@@ -1,10 +1,15 @@
+from collections.abc import Callable
 from decimal import Decimal
+from enum import Enum
+
+from PySide6.QtCore import QThread, Signal
 
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QLabel,
     QMainWindow,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -13,6 +18,28 @@ from PySide6.QtWidgets import (
 from finradar.application.synchronization_service import SynchronizationOutcome
 from finradar.domain.data_readiness import IssueSeverity, ReadinessStatus
 from finradar.domain.financial_snapshot import DatasetKind
+
+
+class ForecastUiState(str, Enum):
+    IDLE = "idle"
+    RUNNING = "running"
+    RESULT = "result"
+    ERROR = "error"
+
+
+class _ForecastWorker(QThread):
+    result_ready = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, runner: Callable[[], SynchronizationOutcome]) -> None:
+        super().__init__()
+        self._runner = runner
+
+    def run(self) -> None:
+        try:
+            self.result_ready.emit(self._runner())
+        except Exception as error:  # UI boundary: domain errors must not close the app.
+            self.failed.emit(str(error) or type(error).__name__)
 
 
 def format_money(
@@ -57,14 +84,71 @@ class MainWindow(QMainWindow):
     def __init__(
         self,
         *,
-        analysis: SynchronizationOutcome,
+        analysis: SynchronizationOutcome | None = None,
         horizon_days: int,
+        forecast_runner: Callable[[], SynchronizationOutcome] | None = None,
+        demo_notice: str | None = None,
     ) -> None:
         super().__init__()
+
+        self._analysis = analysis
+        self._horizon_days = horizon_days
+        self._forecast_runner = forecast_runner
+        self._demo_notice = demo_notice
+        self._error_message: str | None = None
+        self._worker: _ForecastWorker | None = None
+        self._state = (
+            ForecastUiState.RESULT if analysis is not None else ForecastUiState.IDLE
+        )
 
         self.setWindowTitle("FinRadar — Financial Early Warning")
         self.resize(1200, 760)
         self.setMinimumSize(960, 640)
+
+        self._render()
+        self._apply_styles()
+
+    @property
+    def state(self) -> ForecastUiState:
+        return self._state
+
+    def start_forecast(self) -> None:
+        if self._forecast_runner is None:
+            return
+        if self._worker is not None and self._worker.isRunning():
+            return
+        self._state = ForecastUiState.RUNNING
+        self._error_message = None
+        self._render()
+
+        worker = _ForecastWorker(self._forecast_runner)
+        self._worker = worker
+        worker.result_ready.connect(self._accept_result)
+        worker.failed.connect(self._accept_error)
+        worker.finished.connect(self._release_worker)
+        worker.start()
+
+    def _accept_result(self, analysis: SynchronizationOutcome) -> None:
+        self._analysis = analysis
+        self._state = ForecastUiState.RESULT
+        self._error_message = None
+        self._render()
+
+    def _accept_error(self, message: str) -> None:
+        self._state = ForecastUiState.ERROR
+        self._error_message = message
+        self._render()
+
+    def _release_worker(self) -> None:
+        worker = self._worker
+        self._worker = None
+        if worker is not None:
+            worker.deleteLater()
+
+    def _render(self) -> None:
+        previous = self.takeCentralWidget()
+        if previous is not None:
+            previous.deleteLater()
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -80,21 +164,88 @@ class MainWindow(QMainWindow):
         title.setObjectName("title")
         root_layout.addWidget(title)
 
-        self._build_readiness_report(root_layout, analysis)
+        if self._demo_notice:
+            notice = QLabel(self._demo_notice)
+            notice.setObjectName("demoNotice")
+            notice.setWordWrap(True)
+            root_layout.addWidget(notice)
 
-        if analysis.forecast is None or analysis.snapshot.company is None:
-            self._build_empty_state(root_layout)
-        else:
-            self._build_dashboard(
+        self._build_action_panel(root_layout)
+
+        if self._state is ForecastUiState.IDLE:
+            self._build_status_card(
                 root_layout,
-                analysis,
-                horizon_days,
+                "Прогноз ещё не рассчитан",
+                "Нажмите «Дать прогноз». Приложение проверит данные, "
+                "сопоставит бухгалтерские и банковские операции и выполнит расчёт.",
             )
+        elif self._state is ForecastUiState.RUNNING:
+            self._build_status_card(
+                root_layout,
+                "Выполняется расчёт",
+                "Проверяем полноту данных и строим детерминированный прогноз.",
+            )
+        elif self._state is ForecastUiState.ERROR:
+            self._build_status_card(
+                root_layout,
+                "Не удалось построить прогноз",
+                self._error_message or "Неизвестная ошибка.",
+                error=True,
+            )
+        else:
+            assert self._analysis is not None
+            self._build_readiness_report(root_layout, self._analysis)
+            if (
+                self._analysis.forecast is None
+                or self._analysis.snapshot.company is None
+            ):
+                self._build_empty_state(root_layout)
+            else:
+                self._build_dashboard(
+                    root_layout,
+                    self._analysis,
+                    self._horizon_days,
+                )
 
         root_layout.addStretch()
         scroll_area.setWidget(content_widget)
         self.setCentralWidget(scroll_area)
-        self._apply_styles()
+
+    def _build_action_panel(self, root_layout: QVBoxLayout) -> None:
+        if self._forecast_runner is None:
+            return
+        button = QPushButton(
+            "Обновить прогноз"
+            if self._analysis is not None
+            else "Дать прогноз"
+        )
+        button.setObjectName("forecastButton")
+        button.setEnabled(self._state is not ForecastUiState.RUNNING)
+        button.clicked.connect(self.start_forecast)
+        root_layout.addWidget(button)
+
+    def _build_status_card(
+        self,
+        root_layout: QVBoxLayout,
+        title: str,
+        message: str,
+        *,
+        error: bool = False,
+    ) -> None:
+        card = QFrame()
+        card.setObjectName("errorCard" if error else "emptyCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(26, 24, 26, 24)
+        layout.setSpacing(8)
+
+        heading = QLabel(title)
+        heading.setObjectName("statusTitle")
+        description = QLabel(message)
+        description.setObjectName("readinessError" if error else "description")
+        description.setWordWrap(True)
+        layout.addWidget(heading)
+        layout.addWidget(description)
+        root_layout.addWidget(card)
 
     def _build_empty_state(
         self,
@@ -337,6 +488,34 @@ class MainWindow(QMainWindow):
                 font-size: 16px;
             }
 
+            QLabel#demoNotice {
+                color: #fde68a;
+                background-color: #2b2412;
+                border: 1px solid #80651c;
+                border-radius: 10px;
+                padding: 12px;
+                font-size: 13px;
+            }
+
+            QPushButton#forecastButton {
+                color: #07111f;
+                background-color: #5eead4;
+                border: none;
+                border-radius: 10px;
+                padding: 13px 22px;
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            QPushButton#forecastButton:hover {
+                background-color: #99f6e4;
+            }
+
+            QPushButton#forecastButton:disabled {
+                color: #64748b;
+                background-color: #26324d;
+            }
+
             QLabel#sectionTitle {
                 color: #f8fafc;
                 font-size: 20px;
@@ -415,6 +594,18 @@ class MainWindow(QMainWindow):
                 background-color: #151c2f;
                 border: 1px solid #26324d;
                 border-radius: 14px;
+            }
+
+            QFrame#errorCard {
+                background-color: #2a1522;
+                border: 1px solid #7f1d3a;
+                border-radius: 14px;
+            }
+
+            QLabel#statusTitle {
+                color: #f8fafc;
+                font-size: 19px;
+                font-weight: 600;
             }
 
             QLabel#riskTitle {

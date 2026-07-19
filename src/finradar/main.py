@@ -1,30 +1,40 @@
 import argparse
 import sys
 from collections.abc import Sequence
-from datetime import date
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from finradar.application.synchronization_service import synchronize_and_forecast
-from finradar.infrastructure.connectors.prototype_database import PrototypeDatabaseConnector
+from finradar.application.forecast_facade import (
+    ForecastApplicationFacade,
+    ForecastRunConfiguration,
+)
+from finradar.demo.scenario import DemoScenarioRepository
+from finradar.infrastructure.bank_synchronization_history import (
+    SqlAlchemyBankSynchronizationHistory,
+)
+from finradar.infrastructure.connectors.scenario import (
+    ScenarioAccountingConnector,
+    ScenarioBankConnector,
+)
 from finradar.infrastructure.database import (
     REGULATORY_ARCHIVE_DIRECTORY,
     SessionLocal,
     initialize_database,
 )
-from finradar.infrastructure.synchronization_history import (
-    SqlAlchemySynchronizationHistory,
-)
+from finradar.infrastructure.demo_fiscal_rules import DemoFiscalRuleBootstrapper
 from finradar.infrastructure.fiscal_analysis_history import (
     SqlAlchemyFiscalAnalysisHistory,
 )
 from finradar.infrastructure.fiscal_rule_registry import SqlAlchemyFiscalRuleRegistry
+from finradar.infrastructure.regulatory_inbox import RegulatoryInboxPaths
+from finradar.infrastructure.regulatory_retention import RegulatoryArchiveRetention
 from finradar.infrastructure.regulatory_trust_store import (
     SqlAlchemyRegulatoryTrustStore,
 )
-from finradar.infrastructure.regulatory_inbox import RegulatoryInboxPaths
-from finradar.infrastructure.regulatory_retention import RegulatoryArchiveRetention
+from finradar.infrastructure.synchronization_history import (
+    SqlAlchemySynchronizationHistory,
+)
 from finradar.ui.main_window import MainWindow
 from finradar_contracts import decode_trust_record
 
@@ -56,25 +66,34 @@ def main(arguments: Sequence[str] | None = None) -> int:
         paths=RegulatoryInboxPaths.under(REGULATORY_ARCHIVE_DIRECTORY),
     ).enforce()
 
-    horizon_days = 30
-    active_rules = SqlAlchemyFiscalRuleRegistry(SessionLocal).load_active_ruleset()
-    analysis = synchronize_and_forecast(
-        PrototypeDatabaseConnector(SessionLocal),
-        as_of=date.today(),
-        horizon_days=horizon_days,
-        recorder=SqlAlchemySynchronizationHistory(SessionLocal),
-        analysis_recorder=SqlAlchemyFiscalAnalysisHistory(SessionLocal),
-        fiscal_rules=active_rules.obligation_rules,
-        penalty_rules=active_rules.penalty_rules,
-        fine_rules=active_rules.fine_rules,
-    )
-
     app = QApplication(sys.argv)
     app.setApplicationName("FinRadar")
     app.setOrganizationName("FinRadar")
     app.setStyle("Fusion")
 
-    window = MainWindow(analysis=analysis, horizon_days=horizon_days)
+    scenario = DemoScenarioRepository().load("base_cash_gap")
+    rule_bootstrapper = DemoFiscalRuleBootstrapper(
+        SqlAlchemyFiscalRuleRegistry(SessionLocal)
+    )
+    facade = ForecastApplicationFacade(
+        ScenarioAccountingConnector(scenario),
+        configuration=ForecastRunConfiguration(
+            as_of=scenario.as_of,
+            horizon_days=scenario.horizon_days,
+            stress_overdue_days=scenario.stress_overdue_days,
+        ),
+        rule_provider=lambda: rule_bootstrapper.ensure(scenario.fiscal_rules),
+        bank_connector=ScenarioBankConnector(scenario),
+        synchronization_recorder=SqlAlchemySynchronizationHistory(SessionLocal),
+        bank_recorder=SqlAlchemyBankSynchronizationHistory(SessionLocal),
+        analysis_recorder=SqlAlchemyFiscalAnalysisHistory(SessionLocal),
+        violation_events=scenario.violation_events,
+    )
+    window = MainWindow(
+        horizon_days=scenario.horizon_days,
+        forecast_runner=facade.run,
+        demo_notice=scenario.fictional_notice,
+    )
     window.show()
 
     return app.exec()
