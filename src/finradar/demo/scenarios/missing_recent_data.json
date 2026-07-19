@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "scenario_id": "missing_recent_data",
+  "scenario_version": 1,
+  "payload_sha256": "c47539a7b71169d381732045a377e1aebeea22662241ce4991474dfc608394c8",
+  "payload": {
+    "title": "Неполные последние данные — вымышленный сценарий",
+    "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
+    "as_of": "2026-07-18",
+    "horizon_days": 30,
+    "stress_overdue_days": 5,
+    "accounting": {
+      "source_system": "demo-accounting:missing_recent_data:v1",
+      "captured_at": "2026-07-18T09:00:00+04:00",
+      "available_datasets": ["company_profile", "account_balances", "accounting_facts", "payment_calendar"],
+      "company": {
+        "external_id": "fictional-company-missing",
+        "name": "ООО «Демо Маяк» — вымышленная компания",
+        "base_currency": "GEL",
+        "jurisdiction": "XX-DEMO",
+        "tax_regime": "fictional-missing-regime"
+      },
+      "balances": [
+        {
+          "external_id": "fictional-missing-account",
+          "name": "Вымышленный расчётный счёт",
+          "currency": "GEL",
+          "amount": "3000.00",
+          "balance_date": "2026-07-18"
+        }
+      ],
+      "metrics": [
+        {
+          "code": "fictional_taxable_revenue",
+          "amount": "10000.00",
+          "currency": "GEL",
+          "period_start": "2026-06-18",
+          "period_end": "2026-07-17",
+          "source_reference": "fictional-ledger:missing:revenue"
+        }
+      ],
+      "events": [
+        {
+          "external_id": "fictional-missing-receipt",
+          "title": "Ожидаемое вымышленное поступление",
+          "amount": "1000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-19",
+          "direction": "inflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "receivables",
+          "account_external_id": "fictional-missing-account",
+          "source_reference": "fictional-calendar:missing:1"
+        },
+        {
+          "external_id": "fictional-missing-supplier",
+          "title": "Оплата вымышленному поставщику",
+          "amount": "3500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-21",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "suppliers",
+          "account_external_id": "fictional-missing-account",
+          "source_reference": "fictional-calendar:missing:2"
+        }
+      ],
+      "source_issues": [],
+      "source_cursor": "demo:missing_recent_data:v1"
+    },
+    "bank": {
+      "source_system": "demo-bank:missing_recent_data:v1",
+      "captured_at": "2026-07-13T18:00:00+04:00",
+      "available": true,
+      "statements": [
+        {
+          "statement_id": "fictional-stale-statement",
+          "account_external_id": "fictional-missing-account",
+          "period_start": "2026-07-13",
+          "period_end": "2026-07-13",
+          "opening_balance": "3200.00",
+          "closing_balance": "3000.00",
+          "transactions": [
+            {
+              "external_id": "fictional-unrecorded-bank-debit",
+              "account_external_id": "fictional-missing-account",
+              "booking_date": "2026-07-13",
+              "value_date": "2026-07-13",
+              "direction": "debit",
+              "amount": "200.00",
+              "currency": "GEL",
+              "description": "Вымышленная операция без бухгалтерского соответствия",
+              "reference": "DEMO-MISSING-001",
+              "status": "booked",
+              "counterparty_name": "Вымышленный контрагент",
+              "counterparty_account": "DEMO-MISSING-ACCOUNT",
+              "source_reference": "fictional-stale-statement:1"
+            }
+          ]
+        }
+      ],
+      "source_issues": [],
+      "next_cursor": "demo-bank:missing_recent_data:v1"
+    },
+    "fiscal_rules": [
+      {
+        "rule_id": "fictional-missing-tax",
+        "version": 1,
+        "title": "Вымышленный налог для сценария неполных данных",
+        "jurisdiction": "XX-DEMO",
+        "tax_regimes": ["fictional-missing-regime"],
+        "effective_from": "2026-01-01",
+        "effective_to": null,
+        "base_metric_code": "fictional_taxable_revenue",
+        "rate": "0.05",
+        "payment_days_after_period_end": 3,
+        "obligation_category": "fictional_tax",
+        "source_reference": "fictional-public-document:missing-tax:v1"
+      }
+    ],
+    "penalty_rules": [
+      {
+        "rule_id": "fictional-missing-penalty",
+        "version": 1,
+        "applies_to_obligation_rule_id": "fictional-missing-tax",
+        "grace_days": 0,
+        "rate_periods": [{"effective_from": "2026-01-01", "effective_to": null, "daily_rate": "0.001"}],
+        "source_reference": "fictional-public-document:missing-penalty:v1"
+      }
+    ],
+    "fine_rules": [],
+    "violation_events": [],
+    "expected": {
+      "readiness_status": "limited",
+      "opening_balance": "3000.00",
+      "closing_balance": "0.00",
+      "minimum_balance": "0.00",
+      "first_gap_date": null,
+      "required_funding": "0.00",
+      "fiscal_obligation_amount": "500.00",
+      "stress_minimum_balance": "-2.50",
+      "issue_codes": ["bank_coverage_stale", "bank_transactions_missing_in_accounting"],
+      "bank_matched_count": 0,
+      "bank_missing_count": 1
+    }
+  }
+}

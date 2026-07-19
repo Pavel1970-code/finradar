@@ -215,6 +215,28 @@ class DemoGoldenResult(_ContractModel):
     required_funding: Decimal
     fiscal_obligation_amount: Decimal
     stress_minimum_balance: Decimal
+    issue_codes: tuple[str, ...] = ()
+    bank_matched_count: int = Field(default=0, ge=0)
+    bank_missing_count: int = Field(default=0, ge=0)
+    calculated_penalty_amount: Decimal = Decimal("0.00")
+    contingent_fine_amount: Decimal = Decimal("0.00")
+    comparison: DemoGoldenComparison | None = None
+
+
+class DemoGoldenComparison(_ContractModel):
+    baseline_rate: Decimal
+    current_rate: Decimal
+    baseline_obligation_amount: Decimal
+    current_obligation_amount: Decimal
+    baseline_minimum_balance: Decimal
+    current_minimum_balance: Decimal
+    baseline_first_gap_date: date | None
+    current_first_gap_date: date | None
+    baseline_required_funding: Decimal
+    current_required_funding: Decimal
+    obligation_delta: Decimal
+    minimum_balance_delta: Decimal
+    required_funding_delta: Decimal
 
 
 class _ScenarioPayload(_ContractModel):
@@ -228,6 +250,9 @@ class _ScenarioPayload(_ContractModel):
     fiscal_rules: tuple[_FiscalRuleData, ...] = ()
     penalty_rules: tuple[_PenaltyRuleData, ...] = ()
     fine_rules: tuple[_FineRuleData, ...] = ()
+    baseline_fiscal_rules: tuple[_FiscalRuleData, ...] = ()
+    baseline_penalty_rules: tuple[_PenaltyRuleData, ...] = ()
+    baseline_fine_rules: tuple[_FineRuleData, ...] = ()
     violation_events: tuple[_ViolationData, ...] = ()
     expected: DemoGoldenResult
 
@@ -252,6 +277,7 @@ class DemoScenario:
     accounting_snapshot: FinancialSnapshot
     bank_batch: BankSynchronizationBatch | None
     fiscal_rules: ActiveFiscalRuleSet
+    baseline_fiscal_rules: ActiveFiscalRuleSet | None
     violation_events: tuple[ViolationEvent, ...]
     expected: DemoGoldenResult
 
@@ -282,6 +308,22 @@ class DemoScenarioRepository:
         if actual_hash != envelope.payload_sha256:
             raise DemoScenarioError("Demo scenario integrity check failed.")
         return _to_domain(envelope)
+
+    def list(self) -> tuple[DemoScenario, ...]:
+        if self._resource_directory is not None:
+            scenario_ids = tuple(
+                sorted(path.stem for path in self._resource_directory.glob("*.json"))
+            )
+        else:
+            scenario_files = resources.files("finradar.demo.scenarios")
+            scenario_ids = tuple(
+                sorted(
+                    item.name.removesuffix(".json")
+                    for item in scenario_files.iterdir()
+                    if item.name.endswith(".json")
+                )
+            )
+        return tuple(self.load(scenario_id) for scenario_id in scenario_ids)
 
     def _read_text(self, filename: str) -> str:
         if self._resource_directory is not None:
@@ -347,37 +389,22 @@ def _to_domain(envelope: _ScenarioEnvelope) -> DemoScenario:
             ),
             next_cursor=bank.next_cursor,
         )
-    rule_set = ActiveFiscalRuleSet(
-        obligation_rules=tuple(
-            PercentageFiscalRule(
-                **item.model_dump(),
-                status=FiscalRuleStatus.ACTIVE,
-            )
-            for item in payload.fiscal_rules
-        ),
-        penalty_rules=tuple(
-            LatePaymentPenaltyRule(
-                rule_id=item.rule_id,
-                version=item.version,
-                applies_to_obligation_rule_id=item.applies_to_obligation_rule_id,
-                grace_days=item.grace_days,
-                rate_periods=tuple(
-                    PenaltyRatePeriod(**period.model_dump())
-                    for period in item.rate_periods
-                ),
-                source_reference=item.source_reference,
-                status=FiscalRuleStatus.ACTIVE,
-            )
-            for item in payload.penalty_rules
-        ),
-        fine_rules=tuple(
-            FineRule(
-                **item.model_dump(),
-                status=FiscalRuleStatus.ACTIVE,
-            )
-            for item in payload.fine_rules
-        ),
+    rule_set = _to_rule_set(
+        payload.fiscal_rules,
+        payload.penalty_rules,
+        payload.fine_rules,
     )
+    baseline_rule_set = None
+    if (
+        payload.baseline_fiscal_rules
+        or payload.baseline_penalty_rules
+        or payload.baseline_fine_rules
+    ):
+        baseline_rule_set = _to_rule_set(
+            payload.baseline_fiscal_rules,
+            payload.baseline_penalty_rules,
+            payload.baseline_fine_rules,
+        )
     violations = tuple(
         ViolationEvent(**item.model_dump()) for item in payload.violation_events
     )
@@ -392,6 +419,45 @@ def _to_domain(envelope: _ScenarioEnvelope) -> DemoScenario:
         accounting_snapshot=snapshot,
         bank_batch=bank_batch,
         fiscal_rules=rule_set,
+        baseline_fiscal_rules=baseline_rule_set,
         violation_events=violations,
         expected=payload.expected,
+    )
+
+
+def _to_rule_set(
+    fiscal_rules: tuple[_FiscalRuleData, ...],
+    penalty_rules: tuple[_PenaltyRuleData, ...],
+    fine_rules: tuple[_FineRuleData, ...],
+) -> ActiveFiscalRuleSet:
+    return ActiveFiscalRuleSet(
+        obligation_rules=tuple(
+            PercentageFiscalRule(
+                **item.model_dump(),
+                status=FiscalRuleStatus.ACTIVE,
+            )
+            for item in fiscal_rules
+        ),
+        penalty_rules=tuple(
+            LatePaymentPenaltyRule(
+                rule_id=item.rule_id,
+                version=item.version,
+                applies_to_obligation_rule_id=item.applies_to_obligation_rule_id,
+                grace_days=item.grace_days,
+                rate_periods=tuple(
+                    PenaltyRatePeriod(**period.model_dump())
+                    for period in item.rate_periods
+                ),
+                source_reference=item.source_reference,
+                status=FiscalRuleStatus.ACTIVE,
+            )
+            for item in penalty_rules
+        ),
+        fine_rules=tuple(
+            FineRule(
+                **item.model_dump(),
+                status=FiscalRuleStatus.ACTIVE,
+            )
+            for item in fine_rules
+        ),
     )

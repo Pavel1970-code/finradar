@@ -1,19 +1,25 @@
 import json
 import os
 import threading
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from finradar.application.fiscal_rules import ActiveFiscalRuleSet
+from finradar.application.demo_mvp import DemoMvpController
+from finradar.application.fiscal_comparison import (
+    FiscalComparisonStatus,
+    compare_fiscal_rules,
+)
 from finradar.application.forecast_facade import (
     ForecastApplicationFacade,
     ForecastRunConfiguration,
@@ -24,6 +30,7 @@ from finradar.demo.scenario import (
     DemoScenarioRepository,
 )
 from finradar.domain.data_readiness import ReadinessStatus
+from finradar.domain.fiscal_consequences import ConsequenceStatus
 from finradar.infrastructure.bank_synchronization_history import (
     SqlAlchemyBankSynchronizationHistory,
 )
@@ -131,6 +138,129 @@ def test_base_scenario_matches_golden_result_and_records_audit_history(
     assert second.synchronization_run_id != first.synchronization_run_id
 
 
+@pytest.mark.parametrize(
+    "scenario_id",
+    ["base_cash_gap", "missing_recent_data", "fiscal_change_and_delay"],
+)
+def test_every_demo_scenario_matches_its_golden_contract(scenario_id: str) -> None:
+    scenario = DemoScenarioRepository().load(scenario_id)
+    facade = ForecastApplicationFacade(
+        ScenarioAccountingConnector(scenario),
+        configuration=ForecastRunConfiguration(
+            as_of=scenario.as_of,
+            horizon_days=scenario.horizon_days,
+            stress_overdue_days=scenario.stress_overdue_days,
+        ),
+        rule_provider=lambda: scenario.fiscal_rules,
+        baseline_rule_provider=(
+            (lambda: scenario.baseline_fiscal_rules)
+            if scenario.baseline_fiscal_rules is not None
+            else None
+        ),
+        bank_connector=ScenarioBankConnector(scenario),
+        violation_events=scenario.violation_events,
+    )
+
+    outcome = facade.run()
+    expected = scenario.expected
+
+    assert outcome.readiness.status.value == expected.readiness_status
+    assert tuple(item.code for item in outcome.readiness.issues) == expected.issue_codes
+    assert outcome.forecast is not None
+    assert outcome.forecast.opening_balance == expected.opening_balance
+    assert outcome.forecast.closing_balance == expected.closing_balance
+    assert outcome.forecast.minimum_balance == expected.minimum_balance
+    assert outcome.forecast.first_gap_date == expected.first_gap_date
+    assert outcome.forecast.required_funding == expected.required_funding
+    assert outcome.stress_forecast is not None
+    assert outcome.stress_forecast.minimum_balance == expected.stress_minimum_balance
+    assert outcome.bank_reconciliation is not None
+    assert outcome.bank_reconciliation.matched_count == expected.bank_matched_count
+    assert outcome.bank_reconciliation.missing_count == expected.bank_missing_count
+    obligations = tuple(
+        item.calculation.obligation
+        for item in outcome.rule_analyses
+        if item.calculation.obligation is not None
+    )
+    assert len(obligations) == 1
+    assert obligations[0].amount == expected.fiscal_obligation_amount
+    calculated_penalties = sum(
+        (
+            item.amount
+            for item in outcome.consequences
+            if item.consequence_type == "late_payment_penalty"
+            and item.status is ConsequenceStatus.CALCULATED
+            and item.amount is not None
+        ),
+        Decimal("0.00"),
+    )
+    contingent_fines = sum(
+        (
+            item.amount
+            for item in outcome.consequences
+            if item.consequence_type == "fine"
+            and item.status is ConsequenceStatus.CONTINGENT
+            and item.amount is not None
+        ),
+        Decimal("0.00"),
+    )
+    assert calculated_penalties == expected.calculated_penalty_amount
+    assert contingent_fines == expected.contingent_fine_amount
+
+    if expected.comparison is None:
+        assert outcome.fiscal_comparison is None
+    else:
+        comparison = outcome.fiscal_comparison
+        golden = expected.comparison
+        assert comparison is not None
+        assert comparison.status is FiscalComparisonStatus.RESOLVED
+        assert comparison.baseline is not None
+        assert comparison.current is not None
+        assert comparison.baseline.rate == golden.baseline_rate
+        assert comparison.current.rate == golden.current_rate
+        assert (
+            comparison.baseline.obligation_amount
+            == golden.baseline_obligation_amount
+        )
+        assert comparison.current.obligation_amount == golden.current_obligation_amount
+        assert (
+            comparison.baseline.forecast.minimum_balance
+            == golden.baseline_minimum_balance
+        )
+        assert (
+            comparison.current.forecast.minimum_balance
+            == golden.current_minimum_balance
+        )
+        assert (
+            comparison.baseline.forecast.first_gap_date
+            == golden.baseline_first_gap_date
+        )
+        assert (
+            comparison.current.forecast.first_gap_date
+            == golden.current_first_gap_date
+        )
+        assert comparison.obligation_delta == golden.obligation_delta
+        assert comparison.minimum_balance_delta == golden.minimum_balance_delta
+        assert comparison.required_funding_delta == golden.required_funding_delta
+
+
+def test_fiscal_comparison_is_unresolved_when_metric_is_missing() -> None:
+    scenario = DemoScenarioRepository().load("fiscal_change_and_delay")
+    snapshot = replace(scenario.accounting_snapshot, metrics=())
+    assert scenario.baseline_fiscal_rules is not None
+
+    comparison = compare_fiscal_rules(
+        snapshot,
+        baseline_rules=scenario.baseline_fiscal_rules,
+        current_rules=scenario.fiscal_rules,
+        as_of=scenario.as_of,
+        horizon_days=scenario.horizon_days,
+    )
+
+    assert comparison.status is FiscalComparisonStatus.UNRESOLVED
+    assert comparison.obligation_delta is None
+
+
 def test_forecast_window_runs_once_and_replaces_idle_state(qtbot) -> None:
     outcome = _in_memory_outcome()
     release = threading.Event()
@@ -192,6 +322,56 @@ def test_forecast_window_allows_retry_after_error(qtbot) -> None:
     qtbot.waitUntil(lambda: window._worker is None)
 
     assert attempts == 2
+
+
+def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot) -> None:
+    controller = DemoMvpController(_session_factory(tmp_path))
+    options = controller.options()
+    window = MainWindow(
+        horizon_days=30,
+        forecast_runner=controller.run,
+        demo_scenarios=tuple((item.scenario_id, item.title) for item in options),
+        initial_scenario_id="base_cash_gap",
+        demo_notice="Все данные вымышлены.",
+    )
+    qtbot.addWidget(window)
+    window.show()
+    selector = window.findChild(QComboBox, "scenarioSelector")
+
+    selector.setCurrentIndex(selector.findData("missing_recent_data"))
+    assert window.state is ForecastUiState.IDLE
+    qtbot.mouseClick(
+        window.findChild(QPushButton, "forecastButton"),
+        Qt.MouseButton.LeftButton,
+    )
+    qtbot.waitUntil(lambda: window.state is ForecastUiState.RESULT, timeout=5000)
+    qtbot.waitUntil(lambda: window._worker is None, timeout=5000)
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "последние 5 дней" in texts
+    assert "отсутствуют банковские операции: 1" in texts
+    assert "Запись источника" not in texts
+    assert "demo-accounting" not in texts
+
+    selector = window.findChild(QComboBox, "scenarioSelector")
+    selector.setCurrentIndex(selector.findData("fiscal_change_and_delay"))
+    qtbot.mouseClick(
+        window.findChild(QPushButton, "forecastButton"),
+        Qt.MouseButton.LeftButton,
+    )
+    qtbot.waitUntil(lambda: window.state is ForecastUiState.RESULT, timeout=5000)
+    qtbot.waitUntil(lambda: window._worker is None, timeout=5000)
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "Ставка: было 5%, стало 7%" in texts
+    assert "+402.00 GEL" in texts
+    assert "Штраф: 300.00 GEL" in texts
+    metric_values = window.findChildren(QLabel, "metricValue")
+    assert metric_values[2].text() == "-1,404.50 GEL"
+    qtbot.mouseClick(
+        window.findChild(QPushButton, "stressForecastButton"),
+        Qt.MouseButton.LeftButton,
+    )
+    metric_values = window.findChildren(QLabel, "metricValue")
+    assert metric_values[2].text() == "-1,709.00 GEL"
 
 
 def test_facade_rejects_invalid_horizon() -> None:

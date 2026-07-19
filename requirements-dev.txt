@@ -1,0 +1,5 @@
+# Install the three local distributions together so editable Core and Monitor
+# resolve the neutral contracts package without PYTHONPATH workarounds.
+-e ./packages/contracts
+-e .[dev]
+-e ./packages/monitor

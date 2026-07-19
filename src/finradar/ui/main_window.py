@@ -7,8 +7,10 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
+    QComboBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -16,8 +18,12 @@ from PySide6.QtWidgets import (
 )
 
 from finradar.application.synchronization_service import SynchronizationOutcome
-from finradar.domain.data_readiness import IssueSeverity, ReadinessStatus
+from finradar.domain.data_readiness import ReadinessStatus
 from finradar.domain.financial_snapshot import DatasetKind
+from finradar.ui.forecast_view_model import (
+    ForecastViewModel,
+    build_forecast_view_model,
+)
 
 
 class ForecastUiState(str, Enum):
@@ -47,6 +53,11 @@ def format_money(
     currency: str,
 ) -> str:
     return f"{amount:,.2f} {currency}"
+
+
+def format_signed_money(amount: Decimal, currency: str) -> str:
+    sign = "+" if amount > Decimal("0.00") else ""
+    return f"{sign}{amount:,.2f} {currency}"
 
 
 def create_metric_card(
@@ -86,7 +97,9 @@ class MainWindow(QMainWindow):
         *,
         analysis: SynchronizationOutcome | None = None,
         horizon_days: int,
-        forecast_runner: Callable[[], SynchronizationOutcome] | None = None,
+        forecast_runner: Callable[..., SynchronizationOutcome] | None = None,
+        demo_scenarios: tuple[tuple[str, str], ...] = (),
+        initial_scenario_id: str | None = None,
         demo_notice: str | None = None,
     ) -> None:
         super().__init__()
@@ -94,9 +107,14 @@ class MainWindow(QMainWindow):
         self._analysis = analysis
         self._horizon_days = horizon_days
         self._forecast_runner = forecast_runner
+        self._demo_scenarios = demo_scenarios
+        self._selected_scenario_id = initial_scenario_id
+        if self._selected_scenario_id is None and demo_scenarios:
+            self._selected_scenario_id = demo_scenarios[0][0]
         self._demo_notice = demo_notice
         self._error_message: str | None = None
         self._worker: _ForecastWorker | None = None
+        self._show_stress = False
         self._state = (
             ForecastUiState.RESULT if analysis is not None else ForecastUiState.IDLE
         )
@@ -121,7 +139,13 @@ class MainWindow(QMainWindow):
         self._error_message = None
         self._render()
 
-        worker = _ForecastWorker(self._forecast_runner)
+        runner = self._forecast_runner
+        if self._demo_scenarios:
+            scenario_id = self._selected_scenario_id
+            assert scenario_id is not None
+            worker = _ForecastWorker(lambda: runner(scenario_id))
+        else:
+            worker = _ForecastWorker(runner)
         self._worker = worker
         worker.result_ready.connect(self._accept_result)
         worker.failed.connect(self._accept_error)
@@ -130,6 +154,7 @@ class MainWindow(QMainWindow):
 
     def _accept_result(self, analysis: SynchronizationOutcome) -> None:
         self._analysis = analysis
+        self._show_stress = False
         self._state = ForecastUiState.RESULT
         self._error_message = None
         self._render()
@@ -194,7 +219,9 @@ class MainWindow(QMainWindow):
             )
         else:
             assert self._analysis is not None
+            view_model = build_forecast_view_model(self._analysis)
             self._build_readiness_report(root_layout, self._analysis)
+            self._build_data_gaps(root_layout, view_model)
             if (
                 self._analysis.forecast is None
                 or self._analysis.snapshot.company is None
@@ -206,6 +233,9 @@ class MainWindow(QMainWindow):
                     self._analysis,
                     self._horizon_days,
                 )
+                self._build_fiscal_report(root_layout, view_model)
+                self._build_comparison_report(root_layout, view_model)
+                self._build_stress_report(root_layout, self._analysis)
 
         root_layout.addStretch()
         scroll_area.setWidget(content_widget)
@@ -214,6 +244,27 @@ class MainWindow(QMainWindow):
     def _build_action_panel(self, root_layout: QVBoxLayout) -> None:
         if self._forecast_runner is None:
             return
+        controls = QFrame()
+        controls.setObjectName("actionPanel")
+        controls_layout = QHBoxLayout(controls)
+        controls_layout.setContentsMargins(16, 14, 16, 14)
+        controls_layout.setSpacing(14)
+
+        if self._demo_scenarios:
+            selector_label = QLabel("Демонстрационный сценарий")
+            selector_label.setObjectName("controlLabel")
+            selector = QComboBox()
+            selector.setObjectName("scenarioSelector")
+            for scenario_id, title in self._demo_scenarios:
+                selector.addItem(title, scenario_id)
+            selected_index = selector.findData(self._selected_scenario_id)
+            if selected_index >= 0:
+                selector.setCurrentIndex(selected_index)
+            selector.setEnabled(self._state is not ForecastUiState.RUNNING)
+            selector.currentIndexChanged.connect(self._scenario_changed)
+            controls_layout.addWidget(selector_label)
+            controls_layout.addWidget(selector, 1)
+
         button = QPushButton(
             "Обновить прогноз"
             if self._analysis is not None
@@ -222,7 +273,22 @@ class MainWindow(QMainWindow):
         button.setObjectName("forecastButton")
         button.setEnabled(self._state is not ForecastUiState.RUNNING)
         button.clicked.connect(self.start_forecast)
-        root_layout.addWidget(button)
+        controls_layout.addWidget(button)
+        root_layout.addWidget(controls)
+
+    def _scenario_changed(self, index: int) -> None:
+        selector = self.sender()
+        if not isinstance(selector, QComboBox) or index < 0:
+            return
+        scenario_id = selector.itemData(index)
+        if not isinstance(scenario_id, str) or scenario_id == self._selected_scenario_id:
+            return
+        self._selected_scenario_id = scenario_id
+        self._analysis = None
+        self._show_stress = False
+        self._state = ForecastUiState.IDLE
+        self._error_message = None
+        self._render()
 
     def _build_status_card(
         self,
@@ -305,13 +371,9 @@ class MainWindow(QMainWindow):
         status_label.setObjectName("readinessStatus")
         card_layout.addWidget(status_label)
 
-        supplied = ", ".join(
-            _dataset_label(dataset)
-            for dataset in DatasetKind
-            if analysis.snapshot.supplies(dataset)
-        )
         source_label = QLabel(
-            f"Источник: {analysis.snapshot.source_system} · Получено: {supplied or 'нет данных'}"
+            "Дата актуальности данных: "
+            f"{analysis.snapshot.captured_at.strftime('%d.%m.%Y %H:%M')}"
         )
         source_label.setObjectName("readinessMeta")
         source_label.setWordWrap(True)
@@ -323,25 +385,42 @@ class MainWindow(QMainWindow):
             message.setWordWrap(True)
             card_layout.addWidget(message)
         else:
-            for issue in report.issues:
-                marker = "Ошибка" if issue.severity is IssueSeverity.ERROR else "Ограничение"
-                message, impact = _localized_issue(issue.code, issue.message, issue.impact)
-                source_reference = (
-                    f"\nЗапись источника: {issue.source_reference}"
-                    if issue.source_reference
-                    else ""
-                )
-                issue_label = QLabel(
-                    f"{marker}: {message}\nВлияние: {impact}{source_reference}"
-                )
-                issue_label.setObjectName(
-                    "readinessError"
-                    if issue.severity is IssueSeverity.ERROR
-                    else "readinessWarning"
-                )
-                issue_label.setWordWrap(True)
-                card_layout.addWidget(issue_label)
+            message = QLabel(
+                f"Обнаружено проблем с полнотой или согласованностью данных: "
+                f"{len(report.issues)}. Подробности приведены ниже."
+            )
+            message.setObjectName("description")
+            message.setWordWrap(True)
+            card_layout.addWidget(message)
 
+        root_layout.addWidget(card)
+
+    def _build_data_gaps(
+        self,
+        root_layout: QVBoxLayout,
+        view_model: ForecastViewModel,
+    ) -> None:
+        if not view_model.data_gaps:
+            return
+        heading = QLabel("Каких данных не хватает или что требует проверки")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+
+        card = QFrame()
+        card.setObjectName("detailsCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+        for issue in view_model.data_gaps:
+            marker = "Блокирует прогноз" if issue.blocking else "Ограничение"
+            issue_label = QLabel(
+                f"{marker}: {issue.message}\nВлияние: {issue.impact}"
+            )
+            issue_label.setObjectName(
+                "readinessError" if issue.blocking else "readinessWarning"
+            )
+            issue_label.setWordWrap(True)
+            layout.addWidget(issue_label)
         root_layout.addWidget(card)
 
     def _build_dashboard(
@@ -350,14 +429,21 @@ class MainWindow(QMainWindow):
         analysis: SynchronizationOutcome,
         horizon_days: int,
     ) -> None:
-        result = analysis.forecast
+        self._build_forecast_mode_controls(root_layout, analysis)
+        result = (
+            analysis.stress_forecast
+            if self._show_stress and analysis.stress_forecast is not None
+            else analysis.forecast
+        )
         company = analysis.snapshot.company
         assert result is not None
         assert company is not None
 
         subtitle = QLabel(
             f"{company.name} · "
-            f"Прогноз на {horizon_days} дней · "
+            f"Данные на {analysis.snapshot.captured_at.strftime('%d.%m.%Y')} · "
+            f"{'Стресс-сценарий' if self._show_stress else 'Основной прогноз'} "
+            f"на {horizon_days} дней · "
             f"Событий: {len(analysis.snapshot.events)}"
         )
         subtitle.setObjectName("subtitle")
@@ -466,6 +552,188 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(audit_note)
 
+    def _build_forecast_mode_controls(
+        self,
+        root_layout: QVBoxLayout,
+        analysis: SynchronizationOutcome,
+    ) -> None:
+        if (
+            analysis.forecast is None
+            or analysis.stress_forecast is None
+            or analysis.forecast == analysis.stress_forecast
+        ):
+            return
+        controls = QFrame()
+        controls.setObjectName("modePanel")
+        layout = QHBoxLayout(controls)
+        layout.setContentsMargins(8, 8, 8, 8)
+        primary = QPushButton("Основной прогноз")
+        primary.setObjectName("primaryForecastButton")
+        primary.setCheckable(True)
+        primary.setChecked(not self._show_stress)
+        primary.clicked.connect(lambda: self._set_forecast_mode(False))
+        stress = QPushButton("Стресс-сценарий")
+        stress.setObjectName("stressForecastButton")
+        stress.setCheckable(True)
+        stress.setChecked(self._show_stress)
+        stress.clicked.connect(lambda: self._set_forecast_mode(True))
+        layout.addWidget(primary)
+        layout.addWidget(stress)
+        layout.addStretch()
+        root_layout.addWidget(controls)
+
+    def _set_forecast_mode(self, stress: bool) -> None:
+        if self._show_stress == stress:
+            return
+        self._show_stress = stress
+        self._render()
+
+    def _build_fiscal_report(
+        self,
+        root_layout: QVBoxLayout,
+        view_model: ForecastViewModel,
+    ) -> None:
+        if not view_model.obligations and not view_model.consequences:
+            return
+
+        heading = QLabel("Налоги и возможные последствия")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("detailsCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+
+        for obligation in view_model.obligations:
+            rate = (obligation.rate * Decimal("100")).normalize()
+            label = QLabel(
+                f"{obligation.title}\n"
+                f"Расчёт: {rate}% от базы — "
+                f"{format_money(obligation.amount, obligation.currency)}. "
+                f"Срок: {obligation.due_date.strftime('%d.%m.%Y')}. "
+                "Осталось оплатить: "
+                f"{format_money(obligation.outstanding_amount, obligation.currency)}."
+            )
+            label.setObjectName("detailText")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+
+        for consequence in view_model.consequences:
+            amount_text = (
+                format_money(consequence.amount, consequence.currency)
+                if consequence.amount is not None
+                else "сумма не определена"
+            )
+            label = QLabel(
+                f"{consequence.title}: {amount_text}. {consequence.status_text}. "
+                f"Дата расчёта: {consequence.assessment_date.strftime('%d.%m.%Y')}."
+            )
+            label.setObjectName(
+                "readinessWarning" if consequence.warning else "detailText"
+            )
+            label.setWordWrap(True)
+            layout.addWidget(label)
+
+        note = QLabel(
+            "Суммы рассчитаны по вымышленным правилам демонстрационного сценария. "
+            f"Валюта представления: {view_model.currency}."
+        )
+        note.setObjectName("auditNote")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        root_layout.addWidget(card)
+
+    def _build_comparison_report(
+        self,
+        root_layout: QVBoxLayout,
+        view_model: ForecastViewModel,
+    ) -> None:
+        comparison = view_model.comparison
+        if comparison is None:
+            return
+        heading = QLabel("Было — стало — влияние на прогноз")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("comparisonCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(12)
+
+        if not comparison.resolved:
+            message = QLabel(
+                "Сравнение невозможно: для одного из вариантов недостаточно "
+                "данных для однозначного налогового расчёта."
+            )
+            message.setObjectName("readinessWarning")
+            message.setWordWrap(True)
+            layout.addWidget(message)
+        else:
+            assert comparison.baseline_rate is not None
+            assert comparison.current_rate is not None
+            assert comparison.baseline_obligation is not None
+            assert comparison.current_obligation is not None
+            assert comparison.baseline_funding is not None
+            assert comparison.current_funding is not None
+            assert comparison.obligation_delta is not None
+            assert comparison.funding_delta is not None
+            currency = view_model.currency
+            old_rate = (comparison.baseline_rate * Decimal("100")).normalize()
+            new_rate = (comparison.current_rate * Decimal("100")).normalize()
+            rate_label = QLabel(
+                f"Ставка: было {old_rate}%, стало {new_rate}%."
+            )
+            rate_label.setObjectName("comparisonTitle")
+            amount_label = QLabel(
+                "Обязательство: "
+                f"{format_money(comparison.baseline_obligation, currency)} → "
+                f"{format_money(comparison.current_obligation, currency)} "
+                f"(изменение {format_signed_money(comparison.obligation_delta, currency)})."
+            )
+            funding_label = QLabel(
+                "Требуемое финансирование: "
+                f"{format_money(comparison.baseline_funding, currency)} → "
+                f"{format_money(comparison.current_funding, currency)} "
+                f"(изменение "
+                f"{format_signed_money(comparison.funding_delta, currency)})."
+            )
+            for label in (rate_label, amount_label, funding_label):
+                label.setWordWrap(True)
+                if label.objectName() != "comparisonTitle":
+                    label.setObjectName("detailText")
+                layout.addWidget(label)
+        root_layout.addWidget(card)
+
+    def _build_stress_report(
+        self,
+        root_layout: QVBoxLayout,
+        analysis: SynchronizationOutcome,
+    ) -> None:
+        if analysis.forecast is None or analysis.stress_forecast is None:
+            return
+        if analysis.forecast == analysis.stress_forecast:
+            return
+        company = analysis.snapshot.company
+        if company is None:
+            return
+        heading = QLabel("Стресс-сценарий")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("stressCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 20, 24, 20)
+        label = QLabel(
+            "При моделировании дополнительной задержки минимальный остаток "
+            f"изменяется с {format_money(analysis.forecast.minimum_balance, company.base_currency)} "
+            f"до {format_money(analysis.stress_forecast.minimum_balance, company.base_currency)}."
+        )
+        label.setObjectName("readinessWarning")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        root_layout.addWidget(card)
+
     def _apply_styles(self) -> None:
         self.setStyleSheet(
             """
@@ -514,6 +782,47 @@ class MainWindow(QMainWindow):
             QPushButton#forecastButton:disabled {
                 color: #64748b;
                 background-color: #26324d;
+            }
+
+            QFrame#actionPanel {
+                background-color: #11182a;
+                border: 1px solid #26324d;
+                border-radius: 12px;
+            }
+
+            QLabel#controlLabel {
+                color: #cbd5e1;
+                font-size: 14px;
+            }
+
+            QComboBox#scenarioSelector {
+                color: #f8fafc;
+                background-color: #151c2f;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 8px 12px;
+                min-height: 22px;
+            }
+
+            QFrame#modePanel {
+                background-color: transparent;
+                border: none;
+            }
+
+            QPushButton#primaryForecastButton,
+            QPushButton#stressForecastButton {
+                color: #94a3b8;
+                background-color: #151c2f;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 9px 14px;
+            }
+
+            QPushButton#primaryForecastButton:checked,
+            QPushButton#stressForecastButton:checked {
+                color: #f8fafc;
+                background-color: #1d4ed8;
+                border-color: #3b82f6;
             }
 
             QLabel#sectionTitle {
@@ -600,6 +909,35 @@ class MainWindow(QMainWindow):
                 background-color: #2a1522;
                 border: 1px solid #7f1d3a;
                 border-radius: 14px;
+            }
+
+            QFrame#detailsCard {
+                background-color: #151c2f;
+                border: 1px solid #26324d;
+                border-radius: 14px;
+            }
+
+            QFrame#comparisonCard {
+                background-color: #142033;
+                border: 1px solid #2563eb;
+                border-radius: 14px;
+            }
+
+            QFrame#stressCard {
+                background-color: #2b2412;
+                border: 1px solid #80651c;
+                border-radius: 14px;
+            }
+
+            QLabel#detailText {
+                color: #cbd5e1;
+                font-size: 14px;
+            }
+
+            QLabel#comparisonTitle {
+                color: #bfdbfe;
+                font-size: 17px;
+                font-weight: 600;
             }
 
             QLabel#statusTitle {

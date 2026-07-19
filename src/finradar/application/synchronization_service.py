@@ -3,6 +3,7 @@ from datetime import date
 
 from finradar.application.analytical_service import RuleAnalysis, analyze_financial_risk
 from finradar.application.fiscal_analysis_history import FiscalAnalysisRecorder
+from finradar.application.fiscal_comparison import FiscalComparison
 from finradar.application.accounting_connector import (
     AccountingConnector,
     SynchronizationRequest,
@@ -50,6 +51,7 @@ class SynchronizationOutcome:
     fiscal_analysis_run_id: str | None = None
     bank_reconciliation: BankReconciliationReport | None = None
     bank_synchronization_run_id: str | None = None
+    fiscal_comparison: FiscalComparison | None = None
 
 
 def synchronize_and_forecast(

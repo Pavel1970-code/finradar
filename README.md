@@ -4,6 +4,31 @@ FinRadar is a desktop early warning system for small business financial risks.
 
 The application combines accounting facts and versioned regulatory rules to produce deterministic, auditable financial forecasts.
 
+## Development setup
+
+FinRadar Core, the neutral contracts, and Regulatory Monitor are separate local
+distributions. Install them together; installing only the repository root leaves
+the console application without its contracts dependency.
+
+macOS/Linux:
+
+```bash
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/finradar
+```
+
+Windows PowerShell:
+
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\finradar.exe
+```
+
+Do not add `PYTHONPATH` as a normal launch requirement. The command must resolve
+all three installed distributions in the same way as the packaged artifacts.
+
 ## Prototype goals
 
 - Forecast cash availability for 30 days
@@ -55,10 +80,13 @@ defined in
 
 ## Status
 
-The first offline MVP vertical slice runs on bundled, explicitly fictional data.
+The offline MVP runs on three bundled, explicitly fictional scenarios.
 It opens without seeding the prototype tables; press **Дать прогноз** to run the
 accounting snapshot, bank reconciliation, fictional fiscal rules, deterministic
 forecast, stress calculation, and local audit-history pipeline.
+
+The demo selector covers a base cash gap, incomplete recent bank data, and a
+fictional fiscal-rate change with partial payment and delay consequences.
 
 From an activated development environment:
 

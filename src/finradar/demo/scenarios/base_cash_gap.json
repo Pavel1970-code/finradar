@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scenario_id": "base_cash_gap",
   "scenario_version": 1,
-  "payload_sha256": "e3ecc6c06ec590473f05c59232f547e750a4a4103d04579444ba3b627b51caad",
+  "payload_sha256": "f6eea63b23732844d048b02b7d3adb919759915f96c607ce072d017811c016e5",
   "payload": {
     "title": "Базовый кассовый разрыв — вымышленный сценарий",
     "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
@@ -209,7 +209,9 @@
       "first_gap_date": "2026-07-23",
       "required_funding": "1700.00",
       "fiscal_obligation_amount": "1000.00",
-      "stress_minimum_balance": "-1705.00"
+      "stress_minimum_balance": "-1705.00",
+      "bank_matched_count": 2,
+      "bank_missing_count": 0
     }
   }
 }

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from finradar.application.accounting_connector import AccountingConnector
@@ -10,6 +10,7 @@ from finradar.application.bank_connector import (
     BankSynchronizationRecorder,
 )
 from finradar.application.fiscal_analysis_history import FiscalAnalysisRecorder
+from finradar.application.fiscal_comparison import compare_fiscal_rules
 from finradar.application.fiscal_rules import ActiveFiscalRuleSet
 from finradar.application.synchronization_history import SynchronizationRecorder
 from finradar.application.synchronization_service import (
@@ -44,6 +45,7 @@ class ForecastApplicationFacade:
         *,
         configuration: ForecastRunConfiguration,
         rule_provider: FiscalRuleProvider,
+        baseline_rule_provider: FiscalRuleProvider | None = None,
         bank_connector: BankConnector | None = None,
         synchronization_recorder: SynchronizationRecorder | None = None,
         bank_recorder: BankSynchronizationRecorder | None = None,
@@ -53,6 +55,7 @@ class ForecastApplicationFacade:
         self._accounting_connector = accounting_connector
         self._configuration = configuration
         self._rule_provider = rule_provider
+        self._baseline_rule_provider = baseline_rule_provider
         self._bank_connector = bank_connector
         self._synchronization_recorder = synchronization_recorder
         self._bank_recorder = bank_recorder
@@ -65,7 +68,7 @@ class ForecastApplicationFacade:
 
     def run(self) -> SynchronizationOutcome:
         rules = self._rule_provider()
-        return synchronize_and_forecast(
+        outcome = synchronize_and_forecast(
             self._accounting_connector,
             as_of=self._configuration.as_of,
             horizon_days=self._configuration.horizon_days,
@@ -79,3 +82,14 @@ class ForecastApplicationFacade:
             bank_connector=self._bank_connector,
             bank_recorder=self._bank_recorder,
         )
+        if self._baseline_rule_provider is None or outcome.forecast is None:
+            return outcome
+        comparison = compare_fiscal_rules(
+            outcome.snapshot,
+            baseline_rules=self._baseline_rule_provider(),
+            current_rules=rules,
+            as_of=self._configuration.as_of,
+            horizon_days=self._configuration.horizon_days,
+            violation_events=self._violation_events,
+        )
+        return replace(outcome, fiscal_comparison=comparison)

@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "scenario_id": "fiscal_change_and_delay",
+  "scenario_version": 1,
+  "payload_sha256": "d100005b287ca1dbef5f1ae4f02038d8cefec4f8264b81563c17019eb0a8ad22",
+  "payload": {
+    "title": "Изменение ставки и просрочка — вымышленный сценарий",
+    "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
+    "as_of": "2026-07-18",
+    "horizon_days": 30,
+    "stress_overdue_days": 5,
+    "accounting": {
+      "source_system": "demo-accounting:fiscal_change_and_delay:v1",
+      "captured_at": "2026-07-18T09:00:00+04:00",
+      "available_datasets": ["company_profile", "account_balances", "accounting_facts", "payment_calendar"],
+      "company": {
+        "external_id": "fictional-company-change",
+        "name": "ООО «Демо Вектор» — вымышленная компания",
+        "base_currency": "GEL",
+        "jurisdiction": "XX-DEMO",
+        "tax_regime": "fictional-change-regime"
+      },
+      "balances": [
+        {
+          "external_id": "fictional-change-account",
+          "name": "Вымышленный операционный счёт",
+          "currency": "GEL",
+          "amount": "2500.00",
+          "balance_date": "2026-07-18"
+        }
+      ],
+      "metrics": [
+        {
+          "code": "fictional_taxable_revenue",
+          "amount": "20000.00",
+          "currency": "GEL",
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-10",
+          "source_reference": "fictional-ledger:change:revenue"
+        }
+      ],
+      "events": [
+        {
+          "external_id": "fictional-partial-tax-record",
+          "title": "Частично оплаченный вымышленный налог",
+          "amount": "1400.00",
+          "currency": "GEL",
+          "due_date": "2026-07-13",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "settled_amount": "500.00",
+          "obligation_key": "fictional-change-tax:2026-07-01:2026-07-10",
+          "category": "fictional_tax",
+          "account_external_id": "fictional-change-account",
+          "source_reference": "fictional-ledger:change:partial-tax"
+        },
+        {
+          "external_id": "fictional-change-supplier",
+          "title": "Оплата вымышленному поставщику",
+          "amount": "2000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-19",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "suppliers",
+          "account_external_id": "fictional-change-account",
+          "source_reference": "fictional-calendar:change:1"
+        },
+        {
+          "external_id": "fictional-change-receipt",
+          "title": "Вымышленное поступление",
+          "amount": "500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-20",
+          "direction": "inflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "receivables",
+          "account_external_id": "fictional-change-account",
+          "source_reference": "fictional-calendar:change:2"
+        },
+        {
+          "external_id": "fictional-change-payroll",
+          "title": "Вымышленная выплата заработной платы",
+          "amount": "1500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-22",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "payroll",
+          "account_external_id": "fictional-change-account",
+          "source_reference": "fictional-calendar:change:3"
+        }
+      ],
+      "source_issues": [],
+      "source_cursor": "demo:fiscal_change_and_delay:v1"
+    },
+    "bank": {
+      "source_system": "demo-bank:fiscal_change_and_delay:v1",
+      "captured_at": "2026-07-18T09:05:00+04:00",
+      "available": true,
+      "statements": [
+        {
+          "statement_id": "fictional-change-statement",
+          "account_external_id": "fictional-change-account",
+          "period_start": "2026-07-18",
+          "period_end": "2026-07-18",
+          "opening_balance": "2500.00",
+          "closing_balance": "2500.00",
+          "transactions": []
+        }
+      ],
+      "source_issues": [],
+      "next_cursor": "demo-bank:fiscal_change_and_delay:v1"
+    },
+    "fiscal_rules": [
+      {
+        "rule_id": "fictional-change-tax",
+        "version": 2,
+        "title": "Вымышленный налог после изменения ставки",
+        "jurisdiction": "XX-DEMO",
+        "tax_regimes": ["fictional-change-regime"],
+        "effective_from": "2026-07-01",
+        "effective_to": null,
+        "base_metric_code": "fictional_taxable_revenue",
+        "rate": "0.07",
+        "payment_days_after_period_end": 3,
+        "obligation_category": "fictional_tax",
+        "source_reference": "fictional-public-document:change-tax:v2"
+      }
+    ],
+    "penalty_rules": [
+      {
+        "rule_id": "fictional-change-penalty",
+        "version": 2,
+        "applies_to_obligation_rule_id": "fictional-change-tax",
+        "grace_days": 0,
+        "rate_periods": [{"effective_from": "2026-01-01", "effective_to": null, "daily_rate": "0.001"}],
+        "source_reference": "fictional-public-document:change-penalty:v2"
+      }
+    ],
+    "fine_rules": [
+      {
+        "rule_id": "fictional-change-fine",
+        "version": 1,
+        "violation_type": "missing_declaration",
+        "applies_to_obligation_rule_ids": ["fictional-change-tax"],
+        "fixed_amount": "300.00",
+        "percentage_of_outstanding": null,
+        "minimum_amount": null,
+        "maximum_amount": null,
+        "requires_authority_decision": true,
+        "source_reference": "fictional-public-document:change-fine:v1"
+      }
+    ],
+    "baseline_fiscal_rules": [
+      {
+        "rule_id": "fictional-change-tax",
+        "version": 1,
+        "title": "Вымышленный налог до изменения ставки",
+        "jurisdiction": "XX-DEMO",
+        "tax_regimes": ["fictional-change-regime"],
+        "effective_from": "2026-01-01",
+        "effective_to": null,
+        "base_metric_code": "fictional_taxable_revenue",
+        "rate": "0.05",
+        "payment_days_after_period_end": 3,
+        "obligation_category": "fictional_tax",
+        "source_reference": "fictional-public-document:change-tax:v1"
+      }
+    ],
+    "baseline_penalty_rules": [
+      {
+        "rule_id": "fictional-change-penalty",
+        "version": 1,
+        "applies_to_obligation_rule_id": "fictional-change-tax",
+        "grace_days": 0,
+        "rate_periods": [{"effective_from": "2026-01-01", "effective_to": null, "daily_rate": "0.001"}],
+        "source_reference": "fictional-public-document:change-penalty:v1"
+      }
+    ],
+    "baseline_fine_rules": [],
+    "violation_events": [
+      {
+        "violation_id": "fictional-missing-declaration-001",
+        "violation_type": "missing_declaration",
+        "obligation_key": "fictional-change-tax:2026-07-01:2026-07-10",
+        "occurred_on": "2026-07-18",
+        "confirmed": false,
+        "authority_decision_id": null
+      }
+    ],
+    "expected": {
+      "readiness_status": "ready",
+      "opening_balance": "2500.00",
+      "closing_balance": "-1404.50",
+      "minimum_balance": "-1404.50",
+      "first_gap_date": "2026-07-19",
+      "required_funding": "1404.50",
+      "fiscal_obligation_amount": "1400.00",
+      "stress_minimum_balance": "-1709.00",
+      "issue_codes": [],
+      "bank_matched_count": 0,
+      "bank_missing_count": 0,
+      "calculated_penalty_amount": "4.50",
+      "contingent_fine_amount": "300.00",
+      "comparison": {
+        "baseline_rate": "0.05",
+        "current_rate": "0.07",
+        "baseline_obligation_amount": "1000.00",
+        "current_obligation_amount": "1400.00",
+        "baseline_minimum_balance": "-1002.50",
+        "current_minimum_balance": "-1404.50",
+        "baseline_first_gap_date": "2026-07-19",
+        "current_first_gap_date": "2026-07-19",
+        "baseline_required_funding": "1002.50",
+        "current_required_funding": "1404.50",
+        "obligation_delta": "400.00",
+        "minimum_balance_delta": "-402.00",
+        "required_funding_delta": "402.00"
+      }
+    }
+  }
+}
