@@ -1,4 +1,8 @@
 import hashlib
+import json
+import os
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -11,13 +15,21 @@ from sqlalchemy.orm import sessionmaker
 from finradar.infrastructure.database import migrate_database
 from finradar.infrastructure.models import (
     RegulatoryAcceptedPackage,
+    RegulatoryArchiveEvent,
+    RegulatoryKeyRotation,
     RegulatoryPackageImport,
+    RegulatoryTrustBootstrap,
 )
 from finradar.infrastructure.regulatory_inbox import (
     RegulatoryImportOutcome,
     RegulatoryInboxError,
     RegulatoryInboxPaths,
     RegulatoryPackageImporter,
+)
+from finradar.infrastructure.regulatory_retention import (
+    ArchiveEventType,
+    RegulatoryArchiveRetention,
+    RegulatoryRetentionPolicy,
 )
 from finradar.infrastructure.regulatory_trust_store import (
     RegulatoryTrustError,
@@ -26,7 +38,11 @@ from finradar.infrastructure.regulatory_trust_store import (
 )
 from finradar_contracts import (
     MAX_PACKAGE_BYTES,
+    TrustRecordError,
+    build_public_key_record,
     build_regulatory_package,
+    build_rotation_record,
+    decode_trust_record,
     encode_regulatory_package,
     generate_private_key_bytes,
     public_key_bytes,
@@ -35,6 +51,7 @@ from finradar_monitor.signing_keys import (
     MonitorSigningKeyError,
     MonitorSigningKeyStore,
 )
+from finradar_monitor.main import main as monitor_main
 
 
 NOW = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
@@ -111,12 +128,16 @@ def security_context(tmp_path: Path):
     trust_store = SqlAlchemyRegulatoryTrustStore(session_factory)
     private_key = generate_private_key_bytes()
     key_id = str(uuid4())
-    trust_store.add_trusted_key(
-        key_id=key_id,
-        public_key=public_key_bytes(private_key),
-        valid_from=NOW - timedelta(days=1),
-        valid_until=NOW + timedelta(days=180),
+    trust_store.bootstrap_initial_key(
+        public_key_record=build_public_key_record(
+            key_id=key_id,
+            public_key=public_key_bytes(private_key),
+            valid_from=NOW - timedelta(days=1),
+            valid_until=NOW + timedelta(days=180),
+        ),
+        source="signed test installer",
         reason="Provisioned with the signed application release.",
+        received_at=NOW,
     )
     importer = RegulatoryPackageImporter(
         session_factory,
@@ -146,6 +167,111 @@ def test_monitor_key_store_creates_activates_and_detects_tampering(tmp_path: Pat
         store.load_key(key.key_id)
 
 
+def test_monitor_bootstrap_is_idempotent_and_exports_public_material_only(
+    tmp_path: Path,
+) -> None:
+    store = MonitorSigningKeyStore(tmp_path / "private-keys")
+    record_path = tmp_path / "outbox" / "initial-trust.json"
+
+    first = store.initialize_bootstrap_key(record_path, at_time=NOW)
+    second = store.initialize_bootstrap_key(record_path, at_time=NOW + timedelta(minutes=1))
+    record = decode_trust_record(record_path.read_bytes())
+
+    assert first.key_id == second.key_id == record["key_id"]
+    assert record["public_key_fingerprint"] == first.public_key_fingerprint
+    assert first.private_key not in record_path.read_bytes()
+    assert len(tuple((tmp_path / "private-keys").glob("*.ed25519-key"))) == 1
+
+
+def test_monitor_bootstrap_cli_confines_public_record_to_outbox(tmp_path: Path) -> None:
+    monitor_data = tmp_path / "monitor"
+    outbox = tmp_path / "exchange"
+    record_path = outbox / "initial-trust.json"
+
+    assert (
+        monitor_main(
+            (
+                "--data-directory",
+                str(monitor_data),
+                "--outbox-directory",
+                str(outbox),
+                "--initialize-signing-key",
+                "--public-key-record",
+                str(record_path),
+            )
+        )
+        == 0
+    )
+    assert decode_trust_record(record_path.read_bytes())["key_id"]
+
+    with pytest.raises(SystemExit):
+        monitor_main(
+            (
+                "--data-directory",
+                str(monitor_data),
+                "--outbox-directory",
+                str(outbox),
+                "--initialize-signing-key",
+                "--public-key-record",
+                str(tmp_path / "outside.json"),
+            )
+        )
+
+
+def test_core_bootstrap_cli_accepts_only_same_record_on_retry(tmp_path: Path) -> None:
+    private_key = generate_private_key_bytes()
+    record = build_public_key_record(
+        key_id=str(uuid4()),
+        public_key=public_key_bytes(private_key),
+        valid_from=datetime.now(timezone.utc) - timedelta(minutes=1),
+        valid_until=datetime.now(timezone.utc) + timedelta(days=90),
+    )
+    record_path = tmp_path / "trust.json"
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+    environment = dict(os.environ)
+    environment["FINRADAR_CORE_DATA_DIR"] = str(tmp_path / "core")
+    project_root = Path(__file__).resolve().parents[1]
+    environment["PYTHONPATH"] = os.pathsep.join(
+        (
+            str(project_root / "src"),
+            str(project_root / "packages" / "contracts" / "src"),
+        )
+    )
+    command = (
+        sys.executable,
+        "-m",
+        "finradar.main",
+        "--bootstrap-regulatory-trust",
+        str(record_path),
+    )
+
+    first = subprocess.run(command, env=environment, check=False, capture_output=True)
+    retry = subprocess.run(command, env=environment, check=False, capture_output=True)
+
+    assert first.returncode == 0, first.stderr.decode()
+    assert retry.returncode == 0, retry.stderr.decode()
+    assert (tmp_path / "core" / "finradar.db").is_file()
+
+
+def test_trust_record_decoder_rejects_duplicate_json_fields() -> None:
+    private_key = generate_private_key_bytes()
+    record = build_public_key_record(
+        key_id=str(uuid4()),
+        public_key=public_key_bytes(private_key),
+        valid_from=NOW,
+        valid_until=NOW + timedelta(days=90),
+    )
+    encoded = json.dumps(record, separators=(",", ":"), sort_keys=True).encode()
+    duplicate = encoded.replace(
+        b'"key_id":',
+        b'"key_id":"00000000-0000-0000-0000-000000000000","key_id":',
+        1,
+    )
+
+    with pytest.raises(TrustRecordError, match="duplicate JSON field"):
+        decode_trust_record(duplicate)
+
+
 def test_trust_store_supports_overlap_and_irreversible_revocation(tmp_path: Path) -> None:
     session_factory = make_session_factory(tmp_path / "trust.db")
     store = SqlAlchemyRegulatoryTrustStore(session_factory)
@@ -154,14 +280,38 @@ def test_trust_store_supports_overlap_and_irreversible_revocation(tmp_path: Path
     first_id = str(uuid4())
     second_id = str(uuid4())
 
-    for key_id, private_key in ((first_id, first_private), (second_id, second_private)):
-        store.add_trusted_key(
-            key_id=key_id,
-            public_key=public_key_bytes(private_key),
-            valid_from=NOW - timedelta(days=1),
-            valid_until=NOW + timedelta(days=90),
-            reason="Overlapping key rotation window.",
-        )
+    first_record = build_public_key_record(
+        key_id=first_id,
+        public_key=public_key_bytes(first_private),
+        valid_from=NOW - timedelta(days=1),
+        valid_until=NOW + timedelta(days=90),
+    )
+    second_record = build_public_key_record(
+        key_id=second_id,
+        public_key=public_key_bytes(second_private),
+        valid_from=NOW - timedelta(days=1),
+        valid_until=NOW + timedelta(days=90),
+    )
+    store.bootstrap_initial_key(
+        public_key_record=first_record,
+        source="signed test installer",
+        reason="Initial signing key.",
+        received_at=NOW,
+    )
+    rotation = build_rotation_record(
+        previous_key_id=first_id,
+        previous_private_key=first_private,
+        new_key=second_record,
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+    )
+    assert store.apply_rotation(rotation, received_at=NOW) == second_id
+    store.bootstrap_initial_key(
+        public_key_record=first_record,
+        source="installer repair retry",
+        reason="Same trust root after rotation.",
+        received_at=NOW,
+    )
 
     assert store.verification_key(first_id, signed_at=NOW) == public_key_bytes(first_private)
     assert store.verification_key(second_id, signed_at=NOW) == public_key_bytes(second_private)
@@ -177,6 +327,110 @@ def test_trust_store_supports_overlap_and_irreversible_revocation(tmp_path: Path
     assert error.value.code == "revoked_key"
     with pytest.raises(ValueError, match="already revoked"):
         store.revoke_key(first_id, reason="Cannot revoke twice.")
+
+    with session_factory() as session:
+        assert session.get(RegulatoryTrustBootstrap, 1).key_id == first_id
+        assert session.get(RegulatoryKeyRotation, rotation["rotation_id"]) is not None
+
+
+def test_bootstrap_is_idempotent_only_for_the_exact_same_key(tmp_path: Path) -> None:
+    session_factory = make_session_factory(tmp_path / "bootstrap.db")
+    store = SqlAlchemyRegulatoryTrustStore(session_factory)
+    private_key = generate_private_key_bytes()
+    record = build_public_key_record(
+        key_id=str(uuid4()),
+        public_key=public_key_bytes(private_key),
+        valid_from=NOW - timedelta(minutes=1),
+        valid_until=NOW + timedelta(days=90),
+    )
+    store.bootstrap_initial_key(
+        public_key_record=record,
+        source="signed installer",
+        reason="Initial bootstrap.",
+        received_at=NOW,
+    )
+    store.bootstrap_initial_key(
+        public_key_record=record,
+        source="installer retry",
+        reason="Safe retry.",
+        received_at=NOW,
+    )
+
+    replacement_private = generate_private_key_bytes()
+    replacement = build_public_key_record(
+        key_id=str(uuid4()),
+        public_key=public_key_bytes(replacement_private),
+        valid_from=NOW - timedelta(minutes=1),
+        valid_until=NOW + timedelta(days=90),
+    )
+    with pytest.raises(ValueError, match="already been bootstrapped"):
+        store.bootstrap_initial_key(
+            public_key_record=replacement,
+            source="untrusted local process",
+            reason="Attempted replacement.",
+            received_at=NOW,
+        )
+
+    empty_store = SqlAlchemyRegulatoryTrustStore(
+        make_session_factory(tmp_path / "expired-bootstrap.db")
+    )
+    expired = build_public_key_record(
+        key_id=str(uuid4()),
+        public_key=public_key_bytes(generate_private_key_bytes()),
+        valid_from=NOW - timedelta(days=10),
+        valid_until=NOW - timedelta(days=1),
+    )
+    with pytest.raises(RegulatoryTrustError) as error:
+        empty_store.bootstrap_initial_key(
+            public_key_record=expired,
+            source="signed installer",
+            reason="Expired root must not be accepted.",
+            received_at=NOW,
+        )
+    assert error.value.code == "invalid_bootstrap_lifetime"
+
+
+def test_rotation_rejects_tampering_replay_and_malformed_records(tmp_path: Path) -> None:
+    session_factory = make_session_factory(tmp_path / "rotation.db")
+    store = SqlAlchemyRegulatoryTrustStore(session_factory)
+    first_private = generate_private_key_bytes()
+    first_id = str(uuid4())
+    store.bootstrap_initial_key(
+        public_key_record=build_public_key_record(
+            key_id=first_id,
+            public_key=public_key_bytes(first_private),
+            valid_from=NOW - timedelta(days=1),
+            valid_until=NOW + timedelta(days=90),
+        ),
+        source="signed installer",
+        reason="Initial bootstrap.",
+        received_at=NOW,
+    )
+    second_private = generate_private_key_bytes()
+    rotation = build_rotation_record(
+        previous_key_id=first_id,
+        previous_private_key=first_private,
+        new_key=build_public_key_record(
+            key_id=str(uuid4()),
+            public_key=public_key_bytes(second_private),
+            valid_from=NOW,
+            valid_until=NOW + timedelta(days=90),
+        ),
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+    )
+    tampered = dict(rotation)
+    tampered["new_key"] = dict(rotation["new_key"])
+    tampered["new_key"]["valid_until"] = (NOW + timedelta(days=80)).isoformat()
+    with pytest.raises(TrustRecordError, match="verification failed"):
+        store.apply_rotation(tampered, received_at=NOW)
+    with pytest.raises(TrustRecordError, match="invalid fields"):
+        store.apply_rotation({"schema_version": 1}, received_at=NOW)
+
+    store.apply_rotation(rotation, received_at=NOW)
+    with pytest.raises(RegulatoryTrustError) as error:
+        store.apply_rotation(rotation, received_at=NOW)
+    assert error.value.code == "replayed_rotation"
 
 
 def test_verified_package_is_accepted_archived_and_audited(tmp_path: Path) -> None:
@@ -337,3 +591,79 @@ def test_malformed_oversized_and_symlink_attempts_are_audited(tmp_path: Path) ->
         audits = tuple(session.scalars(select(RegulatoryPackageImport)))
     assert len(audits) == 3
     assert sum(item.content_hash is None for item in audits) == 2
+
+
+def test_retention_deletes_only_expired_replays_and_preserves_accepted_archive(
+    tmp_path: Path,
+) -> None:
+    session_factory, _, importer, key_id, private_key = security_context(tmp_path)
+    paths = RegulatoryInboxPaths.under(tmp_path / "archive")
+    package_path = write_package(
+        tmp_path / "retention.json",
+        signed_package(key_id=key_id, private_key=private_key),
+    )
+    accepted = importer.import_file(package_path, received_at=NOW)
+    replay = importer.import_file(package_path, received_at=NOW + timedelta(minutes=1))
+    service = RegulatoryArchiveRetention(
+        session_factory,
+        paths=paths,
+        policy=RegulatoryRetentionPolicy(quarantined_days=30, replayed_days=7),
+    )
+
+    report = service.enforce(at_time=NOW + timedelta(days=8))
+
+    assert report.deleted == 1
+    assert accepted.archive_path.exists()
+    assert not replay.archive_path.exists()
+    assert importer.load_archived_bytes(accepted.import_id) == package_path.read_bytes()
+    with pytest.raises(RegulatoryInboxError) as error:
+        importer.load_archived_bytes(replay.import_id)
+    assert error.value.code == "archive_retention_deleted"
+    with session_factory() as session:
+        event_types = tuple(
+            session.scalars(
+                select(RegulatoryArchiveEvent.event_type).where(
+                    RegulatoryArchiveEvent.import_id == replay.import_id
+                )
+            )
+        )
+    assert event_types == (
+        ArchiveEventType.DELETION_STARTED.value,
+        ArchiveEventType.DELETED.value,
+    )
+    with session_factory() as session:
+        with pytest.raises(IntegrityError, match="immutable"):
+            session.execute(
+                text(
+                    "UPDATE regulatory_archive_events SET reason = 'changed' "
+                    "WHERE import_id = :import_id"
+                ),
+                {"import_id": replay.import_id},
+            )
+            session.commit()
+
+
+def test_retention_preserves_tampered_quarantine_as_evidence(tmp_path: Path) -> None:
+    session_factory, _, importer, _, _ = security_context(tmp_path)
+    malformed_path = tmp_path / "tampered-quarantine.json"
+    malformed_path.write_text("{broken", encoding="utf-8")
+    rejected = importer.import_file(malformed_path, received_at=NOW)
+    rejected.archive_path.chmod(0o600)
+    rejected.archive_path.write_bytes(b"modified after quarantine")
+    service = RegulatoryArchiveRetention(
+        session_factory,
+        paths=RegulatoryInboxPaths.under(tmp_path / "archive"),
+        policy=RegulatoryRetentionPolicy(quarantined_days=30, replayed_days=7),
+    )
+
+    report = service.enforce(at_time=NOW + timedelta(days=31))
+
+    assert report.blocked == 1
+    assert rejected.archive_path.exists()
+    with session_factory() as session:
+        event_type = session.scalar(
+            select(RegulatoryArchiveEvent.event_type).where(
+                RegulatoryArchiveEvent.import_id == rejected.import_id
+            )
+        )
+    assert event_type == ArchiveEventType.DELETION_BLOCKED.value

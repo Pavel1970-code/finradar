@@ -123,9 +123,22 @@ calculate amounts.
 - Database-backed replay protection and an immutable audit record for accepted,
   malformed, untrusted, revoked, expired, invalid-signature, oversized,
   symbolic-link, and replayed attempts.
-- Additive migrations `0004` and `0005`; the prototype database is at
-  `0005_regulatory_preflight` with its existing company and eight cash-flow
-  records preserved.
+- Strict initial public-key record and one-time Core trust bootstrap. Installer
+  retries are idempotent only for the exact same key; attempts to appoint a
+  different root are rejected.
+- Domain-separated, current-key-signed rotation records with bounded lifetime,
+  replay protection, immutable rotation history, and overlapping trusted keys.
+- Monitor bootstrap command that generates its first private key under the
+  Monitor identity and exports only the public record into the one-way exchange.
+- Controlled retention of replayed and quarantined raw bytes with integrity
+  verification, accepted-archive preservation, and append-only deletion,
+  missing-file, failure, and tamper-block events. Enforcement runs during Core
+  startup against the Core-owned regulatory archive.
+- Windows trust-initialization orchestration plus real cross-identity filesystem
+  probes using the configured Core identity and Monitor S4U task.
+- Additive migrations `0004` through `0006`; the prototype database is at
+  `0006_trust_bootstrap` with its existing company and eight cash-flow records
+  preserved.
 
 ## Verification
 
@@ -136,7 +149,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 78 tests passed, including Ed25519 tamper rejection,
+Latest result: Ruff passed; 88 tests passed, including Ed25519 tamper rejection,
 key rotation and revocation, package expiry, quarantine, replay protection,
 immutable import audit, archive-integrity verification, distribution manifests
 and wheel-boundary verification, the regulatory trust
@@ -152,13 +165,13 @@ and UI smoke tests.
 - Regulatory network retrieval and AI extraction are not implemented yet. The
   Monitor boundary, public storage, exchange contract, and Core validator exist,
   but no real source is downloaded.
-- Windows artifact specifications and provisioning scripts exist but have not
-  been executed on the supported Windows release VM. Therefore OS isolation is
-  prepared, not yet release-verified.
-- Executable/installer code signing and trusted-key bootstrap through the
-  installer are not implemented. Package signing and Core trust are implemented.
-- Raw quarantine retention is not implemented; audit history is retained
-  immutably.
+- Windows artifact specifications, provisioning, initial-trust orchestration,
+  and cross-identity filesystem probes exist but have not been executed on the
+  supported Windows release VM. OS isolation is therefore prepared, not yet
+  release-verified.
+- Executable and installer code signing are not implemented. The bootstrap
+  command path exists, but it is trustworthy only when invoked by a signed
+  installer after ACL provisioning.
 - Monitor private keys are protected by file permissions/ACL design, not yet by
   Windows CNG, DPAPI, or hardware-backed storage.
 - The fiscal engine supports only a fictional percentage rule and is not a real
@@ -170,10 +183,11 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Run the independent executable builds and the documented cross-identity
-   security acceptance suite on the supported Windows release VM.
-2. Bootstrap the first trusted public key through the signed installer and
-   finalize private-key custody and quarantine retention.
+1. Build and code-sign the independent executables and installer, then execute
+   trust bootstrap and the documented acceptance suite on the supported Windows
+   release VM.
+2. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
+   prototype decision).
 3. Implement a constrained downloader that revalidates the allowlist after every
    redirect, then connect one stable official Georgian source without AI.
 4. Map accepted public packages into the existing candidate-rule lifecycle and

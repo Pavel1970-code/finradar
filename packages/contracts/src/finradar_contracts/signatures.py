@@ -44,12 +44,28 @@ def public_key_bytes(private_key_bytes: bytes) -> bytes:
 
 
 def signature_value(document: Mapping[str, Any], private_key_bytes: bytes) -> str:
-    private_key = _load_private_key(private_key_bytes)
-    signature = private_key.sign(_signature_input(document))
-    return base64.b64encode(signature).decode("ascii")
+    return signature_value_for_domain(document, private_key_bytes, SIGNATURE_DOMAIN)
 
 
 def verify_signature(document: Mapping[str, Any], public_key: bytes) -> None:
+    verify_signature_for_domain(document, public_key, SIGNATURE_DOMAIN)
+
+
+def signature_value_for_domain(
+    document: Mapping[str, Any],
+    private_key_bytes: bytes,
+    domain: bytes,
+) -> str:
+    private_key = _load_private_key(private_key_bytes)
+    signature = private_key.sign(_signature_input(document, domain))
+    return base64.b64encode(signature).decode("ascii")
+
+
+def verify_signature_for_domain(
+    document: Mapping[str, Any],
+    public_key: bytes,
+    domain: bytes,
+) -> None:
     signature_object = document.get("signature")
     if not isinstance(signature_object, Mapping):
         raise RegulatorySignatureError("package signature is missing")
@@ -65,7 +81,7 @@ def verify_signature(document: Mapping[str, Any], public_key: bytes) -> None:
         raise RegulatorySignatureError("Ed25519 public key must be 32 bytes")
     try:
         verifier = Ed25519PublicKey.from_public_bytes(public_key)
-        verifier.verify(signature, _signature_input(document))
+        verifier.verify(signature, _signature_input(document, domain))
     except (InvalidSignature, ValueError) as error:
         raise RegulatorySignatureError("package signature verification failed") from error
 
@@ -97,7 +113,7 @@ def _load_private_key(private_key_bytes: bytes) -> Ed25519PrivateKey:
         raise RegulatorySignatureError("Ed25519 private key is invalid") from error
 
 
-def _signature_input(document: Mapping[str, Any]) -> bytes:
+def _signature_input(document: Mapping[str, Any], domain: bytes) -> bytes:
     signable = dict(document)
     signature_object = signable.get("signature")
     if not isinstance(signature_object, Mapping):
@@ -113,4 +129,4 @@ def _signature_input(document: Mapping[str, Any]) -> bytes:
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
-    return SIGNATURE_DOMAIN + canonical
+    return domain + canonical

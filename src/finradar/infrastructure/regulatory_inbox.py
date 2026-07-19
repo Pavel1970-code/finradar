@@ -12,11 +12,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from finradar.infrastructure.models import (
     RegulatoryAcceptedPackage,
+    RegulatoryArchiveEvent,
     RegulatoryPackageImport,
 )
 from finradar.infrastructure.regulatory_trust_store import (
@@ -287,12 +289,31 @@ class RegulatoryPackageImporter:
                 raise LookupError("Regulatory import audit record was not found.")
             archive_location = audit.archive_location
             expected_hash = audit.content_hash
+            retention_terminal = session.scalar(
+                select(RegulatoryArchiveEvent.event_type)
+                .where(
+                    RegulatoryArchiveEvent.import_id == import_id,
+                    RegulatoryArchiveEvent.event_type.in_(("deleted", "missing")),
+                )
+                .limit(1)
+            )
+        if retention_terminal:
+            raise RegulatoryInboxError(
+                "Archived package bytes are no longer available.",
+                code="archive_retention_deleted",
+            )
         if archive_location is None or expected_hash is None:
             raise RegulatoryInboxError(
                 "Rejected package has no archived bytes.",
                 code="archive_unavailable",
             )
-        archive_path = (self._paths.root / archive_location).resolve(strict=True)
+        try:
+            archive_path = (self._paths.root / archive_location).resolve(strict=True)
+        except FileNotFoundError as error:
+            raise RegulatoryInboxError(
+                "Archived package bytes are no longer available.",
+                code="archive_missing",
+            ) from error
         if not archive_path.is_relative_to(self._paths.root):
             raise RegulatoryInboxError(
                 "Archived package path escaped the Core archive.",

@@ -228,6 +228,43 @@ class RegulatoryTrustedKeyEvent(Base):
     )
 
 
+class RegulatoryTrustBootstrap(Base):
+    __tablename__ = "regulatory_trust_bootstrap"
+
+    singleton_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_trusted_keys.key_id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    record_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class RegulatoryKeyRotation(Base):
+    __tablename__ = "regulatory_key_rotations"
+
+    rotation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    previous_key_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_trusted_keys.key_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    new_key_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_trusted_keys.key_id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class RegulatoryPackageImport(Base):
     __tablename__ = "regulatory_package_imports"
 
@@ -261,6 +298,22 @@ class RegulatoryAcceptedPackage(Base):
         nullable=False,
         index=True,
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class RegulatoryArchiveEvent(Base):
+    __tablename__ = "regulatory_archive_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    import_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_package_imports.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

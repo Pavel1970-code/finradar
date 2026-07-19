@@ -12,7 +12,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from finradar_contracts import generate_private_key_bytes, public_key_bytes
+from finradar_contracts import (
+    build_public_key_record,
+    encode_trust_record,
+    generate_private_key_bytes,
+    public_key_bytes,
+)
 
 
 KEY_METADATA_FIELDS = {
@@ -42,6 +47,14 @@ class MonitorSigningKey:
     def public_key_fingerprint(self) -> str:
         return hashlib.sha256(self.public_key).hexdigest()
 
+    def public_record(self) -> dict[str, object]:
+        return build_public_key_record(
+            key_id=self.key_id,
+            public_key=self.public_key,
+            valid_from=self.valid_from,
+            valid_until=self.valid_until,
+        )
+
 
 class MonitorSigningKeyStore:
     def __init__(self, directory: Path) -> None:
@@ -52,6 +65,36 @@ class MonitorSigningKeyStore:
         self._directory.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             self._directory.chmod(0o700)
+
+    def initialize_bootstrap_key(
+        self,
+        public_record_path: Path,
+        *,
+        at_time: datetime | None = None,
+    ) -> MonitorSigningKey:
+        """Create the first key once, then idempotently re-export its public record."""
+        timestamp = _aware_datetime(at_time or datetime.now(timezone.utc), "at_time")
+        self.initialize()
+        if self._active_key_path.exists():
+            key = self.load_active(at_time=timestamp)
+        else:
+            key_artifacts = tuple(self._directory.glob("*.ed25519-key")) + tuple(
+                self._directory.glob("*.json")
+            )
+            if key_artifacts:
+                raise MonitorSigningKeyError(
+                    "inactive signing-key artifacts require operator recovery"
+                )
+            key = self.create_key(
+                valid_from=timestamp - timedelta(minutes=5),
+                valid_until=timestamp + timedelta(days=365),
+            )
+            self.activate_key(key.key_id, at_time=timestamp)
+
+        destination = public_record_path.resolve()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        self._write_bytes_atomic_to(destination, encode_trust_record(key.public_record()))
+        return key
 
     def create_key(
         self,
@@ -175,8 +218,12 @@ class MonitorSigningKeyStore:
         self._write_bytes_atomic(destination, encoded)
 
     def _write_bytes_atomic(self, destination: Path, value: bytes) -> None:
+        self._write_bytes_atomic_to(destination, value)
+
+    @staticmethod
+    def _write_bytes_atomic_to(destination: Path, value: bytes) -> None:
         descriptor, temporary_name = tempfile.mkstemp(
-            dir=self._directory,
+            dir=destination.parent,
             prefix=f".{destination.name}.",
             suffix=".tmp",
         )

@@ -50,14 +50,23 @@ prototype boundary but is not the final key-custody mechanism.
 Core stores public keys only. Trusted-key definitions and lifecycle events are
 append-only and protected by SQLite immutability triggers.
 
+The first key is initialized exactly once from a strict public-key record while
+the signed installer runs under the protected Core identity. Re-running with
+the byte-equivalent record is idempotent; any different key is rejected. Core
+also rejects an initial key that is not currently valid. The ACL boundary must
+exist before this step to avoid a local first-writer attack.
+
 Rotation uses an overlap window:
 
 1. Generate a new Monitor key.
-2. Provision its public key into Core through the signed installer or another
-   authenticated administrative channel.
-3. Keep old and new keys trusted during a bounded overlap.
-4. Activate the new Monitor key.
-5. Revoke the old key in Core after all outstanding packages have expired.
+2. Build a bounded rotation record containing the new public-key record and
+   sign it with the current trusted private key under a separate rotation
+   domain.
+3. Verify the old key, signature, record lifetime, and unique rotation ID in
+   Core before appending the new key.
+4. Keep old and new keys trusted during a bounded overlap.
+5. Activate the new Monitor key.
+6. Revoke the old key in Core after all outstanding packages have expired.
 
 Revocation is irreversible. Packages presented after revocation are rejected,
 even when signed before the revocation event. An inbound regulatory package can
@@ -85,6 +94,13 @@ performs structural, lifetime, trust, and signature checks.
   and cannot create a second accepted record.
 - Archive files are read-only on POSIX. Every later archive load recomputes the
   immutable content hash and detects modification.
+- Accepted package archives have no automatic retention deletion.
+- Replayed raw archives are retained for seven days by default; other
+  quarantined bytes are retained for thirty days by default.
+- Retention recomputes the original hash before deletion. Missing, tampered,
+  symlinked, or escaped paths are recorded and not silently deleted.
+- Deletion intent and completion are separate append-only archive events, while
+  the original import audit row remains immutable.
 
 Every attempt creates an append-only audit row containing outcome, reason code,
 package/key identifiers when available, original name, content hash when safely
@@ -104,12 +120,11 @@ trusted-key history are also immutable.
 
 ## Remaining work
 
-- Provision the initial trust root through the signed Windows installer.
-- Verify Windows ACLs and firewall policy under the real Core/Monitor identities.
+- Execute initial trust provisioning through the signed installer on Windows.
+- Verify Windows ACLs, cross-identity access, and firewall policy on the release
+  VM.
 - Replace file-based private-key custody if the final threat model requires CNG,
   DPAPI, or hardware-backed keys.
-- Define and implement raw quarantine retention. Immutable audit rows must remain
-  even after permitted raw rejected files expire.
 - Code-sign executables and installer artifacts.
 
 No downloader may be enabled until the trust root and Windows acceptance checks

@@ -16,7 +16,10 @@ EXPECTED_TABLES = {
     "fiscal_rule_lifecycle_events",
     "fiscal_rule_versions",
     "regulatory_accepted_packages",
+    "regulatory_archive_events",
+    "regulatory_key_rotations",
     "regulatory_package_imports",
+    "regulatory_trust_bootstrap",
     "regulatory_trusted_key_events",
     "regulatory_trusted_keys",
     "source_snapshots",
@@ -36,7 +39,7 @@ def test_new_database_is_created_at_head(tmp_path: Path) -> None:
     assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0005_regulatory_preflight"
+            "0006_trust_bootstrap"
         )
 
 
@@ -61,5 +64,5 @@ def test_existing_prototype_database_is_baselined_without_data_loss(tmp_path: Pa
             "Fictional Company"
         )
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0005_regulatory_preflight"
+            "0006_trust_bootstrap"
         )

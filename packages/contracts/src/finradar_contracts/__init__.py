@@ -13,15 +13,33 @@ from finradar_contracts.signatures import (
     generate_private_key_bytes,
     public_key_bytes,
 )
+from finradar_contracts.trust_records import (
+    TrustRecordError,
+    build_public_key_record,
+    build_rotation_record,
+    decode_rotation_record,
+    decode_trust_record,
+    encode_rotation_record,
+    encode_trust_record,
+    verify_rotation_record,
+)
 
 __all__ = [
     "MAX_PACKAGE_BYTES",
     "RegulatoryPackageError",
     "RegulatorySignatureError",
+    "TrustRecordError",
     "build_regulatory_package",
+    "build_public_key_record",
+    "build_rotation_record",
+    "decode_rotation_record",
+    "decode_trust_record",
     "decode_regulatory_package",
     "encode_regulatory_package",
+    "encode_rotation_record",
+    "encode_trust_record",
     "generate_private_key_bytes",
     "public_key_bytes",
     "verify_regulatory_package_signature",
+    "verify_rotation_record",
 ]

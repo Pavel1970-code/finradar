@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -9,18 +10,25 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+CORE_DATA_DIRECTORY_ENV = "FINRADAR_CORE_DATA_DIR"
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 RESOURCE_ROOT = (
     Path(getattr(sys, "_MEIPASS")).resolve()
     if IS_FROZEN
     else PROJECT_ROOT
 )
+_configured_data_directory = os.environ.get(CORE_DATA_DIRECTORY_ENV)
 DATA_DIRECTORY = (
-    user_data_path("FinRadar", "FinRadar", roaming=False)
-    if IS_FROZEN
-    else PROJECT_ROOT / "data"
+    Path(_configured_data_directory).expanduser().resolve()
+    if _configured_data_directory
+    else (
+        user_data_path("FinRadar", "FinRadar", roaming=False)
+        if IS_FROZEN
+        else PROJECT_ROOT / "data"
+    )
 )
 DATABASE_PATH = DATA_DIRECTORY / "finradar.db"
+REGULATORY_ARCHIVE_DIRECTORY = DATA_DIRECTORY / "regulatory-archive"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 ALEMBIC_CONFIG_PATH = RESOURCE_ROOT / "alembic.ini"
 MIGRATIONS_DIRECTORY = RESOURCE_ROOT / "migrations"

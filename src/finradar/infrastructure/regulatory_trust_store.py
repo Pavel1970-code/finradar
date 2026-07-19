@@ -4,18 +4,32 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
-from finradar.infrastructure.models import RegulatoryTrustedKey, RegulatoryTrustedKeyEvent
+from finradar.infrastructure.models import (
+    RegulatoryKeyRotation,
+    RegulatoryTrustBootstrap,
+    RegulatoryTrustedKey,
+    RegulatoryTrustedKeyEvent,
+)
+from finradar_contracts import (
+    TrustRecordError,
+    decode_rotation_record,
+    decode_trust_record,
+    encode_rotation_record,
+    encode_trust_record,
+    verify_rotation_record,
+)
 
 
 PUBLIC_KEY_BYTES = 32
+MAX_CLOCK_SKEW = timedelta(minutes=5)
 
 
 class TrustedKeyStatus(str, Enum):
@@ -33,46 +47,129 @@ class SqlAlchemyRegulatoryTrustStore:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
-    def add_trusted_key(
+    def bootstrap_initial_key(
         self,
         *,
-        key_id: str,
-        public_key: bytes,
-        valid_from: datetime,
-        valid_until: datetime,
+        public_key_record: dict[str, object],
+        source: str,
         reason: str,
+        received_at: datetime | None = None,
     ) -> None:
-        _canonical_uuid(key_id)
-        if len(public_key) != PUBLIC_KEY_BYTES:
-            raise ValueError("Ed25519 public key must be 32 bytes.")
-        valid_from = _as_utc(valid_from, "valid_from")
-        valid_until = _as_utc(valid_until, "valid_until")
-        if valid_until <= valid_from:
-            raise ValueError("valid_until must be after valid_from.")
+        if not source.strip() or len(source) > 200:
+            raise ValueError("A valid bootstrap source is required.")
         _validate_reason(reason)
-
-        encoded = base64.b64encode(public_key).decode("ascii")
-        stored = RegulatoryTrustedKey(
-            key_id=key_id,
-            algorithm="Ed25519",
-            public_key_base64=encoded,
-            public_key_fingerprint=hashlib.sha256(public_key).hexdigest(),
-            valid_from=valid_from,
-            valid_until=valid_until,
-        )
-        stored.lifecycle_events.append(
-            RegulatoryTrustedKeyEvent(
-                sequence=1,
-                status=TrustedKeyStatus.TRUSTED.value,
-                reason=reason,
-            )
+        encoded_record = encode_trust_record(public_key_record)
+        record = decode_trust_record(encoded_record)
+        timestamp = _as_utc(received_at or datetime.now(timezone.utc), "received_at")
+        valid_from = _as_utc(datetime.fromisoformat(record["valid_from"]), "valid_from")
+        valid_until = _as_utc(
+            datetime.fromisoformat(record["valid_until"]),
+            "valid_until",
         )
         try:
             with self._session_factory() as session:
+                existing_keys = session.scalar(
+                    select(func.count()).select_from(RegulatoryTrustedKey)
+                )
+                bootstrap = session.get(RegulatoryTrustBootstrap, 1)
+                record_hash = hashlib.sha256(encoded_record).hexdigest()
+                if bootstrap is not None:
+                    if (
+                        bootstrap.key_id == record["key_id"]
+                        and bootstrap.record_hash == record_hash
+                        and session.get(RegulatoryTrustedKey, bootstrap.key_id) is not None
+                    ):
+                        return
+                    raise ValueError("Regulatory trust has already been bootstrapped.")
+                if existing_keys:
+                    raise ValueError(
+                        "Trusted keys exist without a valid bootstrap record."
+                    )
+                if valid_from > timestamp + MAX_CLOCK_SKEW or valid_until <= timestamp:
+                    raise RegulatoryTrustError(
+                        "invalid_bootstrap_lifetime",
+                        "Initial signing key is not currently valid.",
+                    )
+                stored = self._stored_key(record, reason=reason)
                 session.add(stored)
+                session.flush()
+                session.add(
+                    RegulatoryTrustBootstrap(
+                        singleton_id=1,
+                        key_id=record["key_id"],
+                        record_hash=record_hash,
+                        source=source.strip(),
+                    )
+                )
                 session.commit()
         except IntegrityError as error:
-            raise ValueError("This regulatory signing key is already registered.") from error
+            raise ValueError("Regulatory trust bootstrap already exists.") from error
+
+    def apply_rotation(
+        self,
+        rotation_record: dict[str, object],
+        *,
+        received_at: datetime | None = None,
+    ) -> str:
+        timestamp = _as_utc(received_at or datetime.now(timezone.utc), "received_at")
+        encoded_rotation = encode_rotation_record(rotation_record)
+        validated = decode_rotation_record(encoded_rotation)
+        issued_at = _as_utc(
+            datetime.fromisoformat(validated["issued_at"]),
+            "issued_at",
+        )
+        previous_key_id = validated["previous_key_id"]
+        record = verify_rotation_record(
+            validated,
+            self.verification_key(
+                previous_key_id,
+                signed_at=issued_at,
+            ),
+        )
+        expires_at = _as_utc(datetime.fromisoformat(record["expires_at"]), "expires_at")
+        if issued_at > timestamp + MAX_CLOCK_SKEW:
+            raise RegulatoryTrustError("future_rotation", "Rotation record is from the future.")
+        if expires_at <= timestamp:
+            raise RegulatoryTrustError("expired_rotation", "Rotation record has expired.")
+        if record["new_key"]["key_id"] == record["previous_key_id"]:
+            raise RegulatoryTrustError("invalid_rotation", "Rotation must introduce a new key.")
+
+        try:
+            with self._session_factory() as session:
+                if session.get(RegulatoryTrustBootstrap, 1) is None:
+                    raise RegulatoryTrustError(
+                        "missing_bootstrap", "Initial trust has not been bootstrapped."
+                    )
+                if session.get(RegulatoryKeyRotation, record["rotation_id"]) is not None:
+                    raise RegulatoryTrustError(
+                        "replayed_rotation", "Rotation record has already been applied."
+                    )
+                previous = self._get_key(session, previous_key_id)
+                if self._current_status(previous) is TrustedKeyStatus.REVOKED:
+                    raise RegulatoryTrustError(
+                        "revoked_key", "Rotation signer has been revoked."
+                    )
+                stored = self._stored_key(
+                    record["new_key"],
+                    reason=f"Authorized by rotation {record['rotation_id']}.",
+                )
+                session.add(stored)
+                session.flush()
+                session.add(
+                    RegulatoryKeyRotation(
+                        rotation_id=record["rotation_id"],
+                        previous_key_id=previous_key_id,
+                        new_key_id=record["new_key"]["key_id"],
+                        content_hash=hashlib.sha256(encoded_rotation).hexdigest(),
+                        issued_at=issued_at,
+                    )
+                )
+                session.commit()
+        except IntegrityError as error:
+            raise RegulatoryTrustError(
+                "invalid_rotation", "Rotation key or identifier already exists."
+            ) from error
+        return record["new_key"]["key_id"]
 
     def revoke_key(self, key_id: str, *, reason: str) -> None:
         _validate_reason(reason)
@@ -147,6 +244,35 @@ class SqlAlchemyRegulatoryTrustStore:
                 TrustedKeyStatus(item.status)
                 for item in sorted(stored.lifecycle_events, key=lambda item: item.sequence)
             )
+
+    @staticmethod
+    def _stored_key(
+        record: dict[str, object],
+        *,
+        reason: str,
+    ) -> RegulatoryTrustedKey:
+        try:
+            public_key = base64.b64decode(str(record["public_key_base64"]), validate=True)
+        except ValueError as error:
+            raise TrustRecordError("public key is malformed") from error
+        stored = RegulatoryTrustedKey(
+            key_id=str(record["key_id"]),
+            algorithm=str(record["algorithm"]),
+            public_key_base64=str(record["public_key_base64"]),
+            public_key_fingerprint=str(record["public_key_fingerprint"]),
+            valid_from=datetime.fromisoformat(str(record["valid_from"])),
+            valid_until=datetime.fromisoformat(str(record["valid_until"])),
+        )
+        if len(public_key) != PUBLIC_KEY_BYTES:
+            raise TrustRecordError("public key must be 32 bytes")
+        stored.lifecycle_events.append(
+            RegulatoryTrustedKeyEvent(
+                sequence=1,
+                status=TrustedKeyStatus.TRUSTED.value,
+                reason=reason,
+            )
+        )
+        return stored
 
     @staticmethod
     def _get_key(session: Session, key_id: str) -> RegulatoryTrustedKey:

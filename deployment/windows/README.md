@@ -12,7 +12,23 @@ Run them from an elevated PowerShell session on the target Windows version.
 3. Run `Set-FinRadarBoundary.ps1` with the principal printed by step 2. It
    replaces inherited ACLs on the three data zones and creates scoped firewall
    rules.
-4. Run `Test-FinRadarBoundary.ps1` with the same arguments.
+4. Run `Initialize-FinRadarTrust.ps1` as the configured Core principal. It
+   temporarily invokes the Monitor task under its S4U identity, creates one
+   private signing key in Monitor storage, exports only a strict public record,
+   and bootstraps the Core database. A retry with the same key is safe; a
+   different first key is rejected.
+5. Run `Test-FinRadarBoundary.ps1` with the same arguments.
+6. Run `Invoke-FinRadarIdentityAcceptance.ps1`. It executes filesystem probes
+   under the Monitor S4U identity and a temporary `RunLevel Limited` Core task.
+   It restores the normal Monitor action and removes the temporary Core task
+   even if a probe fails. Running the Core probe directly from the elevated
+   installer would be invalid because Administrators intentionally retain
+   recovery access to both data zones.
+
+The ACL boundary must be applied before trust initialization. This prevents an
+unprivileged first writer from creating the Core database and appointing an
+untrusted initial key. The installer must itself be code-signed; these scripts
+do not establish trust in an unsigned installer.
 
 The directories have intentionally different permissions:
 
@@ -38,16 +54,19 @@ application hostname allowlist.
 
 ## Release acceptance tests
 
-The supplied verification script checks declared ACL and firewall state. A
-release VM must additionally execute adversarial tests under the real identities:
+The supplied scripts check declared ACL/firewall state and real cross-identity
+filesystem access. A release VM must additionally execute executable-level
+network tests:
 
-- Monitor cannot open or enumerate the Core database directory.
-- Core can read completed exchange packages but cannot modify Monitor storage.
 - Core cannot connect to a public test endpoint.
 - Monitor cannot connect to loopback, the local subnet, or non-HTTPS internet
   ports.
 - Monitor can reach an approved official HTTPS test endpoint.
 - Neither executable contains the other runtime package.
+
+The current Monitor has no downloader or network probe, so the positive and
+negative executable network tests cannot yet be honestly executed. Static
+firewall checks are not a substitute for those release tests.
 
 Do not enable the downloader until all checks pass on the supported Windows
 build and the initial trusted public key has been provisioned through the signed
