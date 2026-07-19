@@ -14,6 +14,12 @@ from finradar.domain.data_readiness import (
 )
 from finradar.domain.financial_snapshot import FinancialSnapshot
 from finradar.domain.fiscal import PercentageFiscalRule
+from finradar.domain.fiscal_consequences import (
+    FineRule,
+    FiscalConsequence,
+    LatePaymentPenaltyRule,
+    ViolationEvent,
+)
 from finradar.domain.forecast import ForecastResult
 
 
@@ -24,6 +30,8 @@ class SynchronizationOutcome:
     forecast: ForecastResult | None
     synchronization_run_id: str | None = None
     rule_analyses: tuple[RuleAnalysis, ...] = ()
+    stress_forecast: ForecastResult | None = None
+    consequences: tuple[FiscalConsequence, ...] = ()
 
 
 def synchronize_and_forecast(
@@ -33,6 +41,10 @@ def synchronize_and_forecast(
     horizon_days: int = 30,
     recorder: SynchronizationRecorder | None = None,
     fiscal_rules: tuple[PercentageFiscalRule, ...] = (),
+    penalty_rules: tuple[LatePaymentPenaltyRule, ...] = (),
+    fine_rules: tuple[FineRule, ...] = (),
+    violation_events: tuple[ViolationEvent, ...] = (),
+    stress_overdue_days: int = 0,
 ) -> SynchronizationOutcome:
     connector.test_connection()
     capabilities = connector.capabilities()
@@ -62,6 +74,10 @@ def synchronize_and_forecast(
         fiscal_rules,
         as_of=as_of,
         horizon_days=horizon_days,
+        penalty_rules=penalty_rules,
+        fine_rules=fine_rules,
+        violation_events=violation_events,
+        stress_overdue_days=stress_overdue_days,
     )
 
     return SynchronizationOutcome(
@@ -70,4 +86,6 @@ def synchronize_and_forecast(
         forecast=analytical_result.forecast,
         synchronization_run_id=synchronization_run_id,
         rule_analyses=analytical_result.rule_analyses,
+        stress_forecast=analytical_result.stress_forecast,
+        consequences=analytical_result.consequences,
     )

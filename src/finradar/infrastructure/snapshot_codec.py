@@ -94,6 +94,8 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
                 ),
                 settled_amount=Decimal(item.get("settled_amount", "0.00")),
                 obligation_key=item.get("obligation_key"),
+                related_obligation_key=item.get("related_obligation_key"),
+                fiscal_consequence_type=item.get("fiscal_consequence_type"),
                 category=item["category"],
                 account_external_id=item["account_external_id"],
             )
@@ -147,6 +149,8 @@ def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
         "status": event.status.value,
         "settled_amount": str(event.settled_amount),
         "obligation_key": event.obligation_key,
+        "related_obligation_key": event.related_obligation_key,
+        "fiscal_consequence_type": event.fiscal_consequence_type,
         "category": event.category,
         "account_external_id": event.account_external_id,
     }

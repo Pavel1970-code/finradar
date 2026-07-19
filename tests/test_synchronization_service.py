@@ -5,6 +5,11 @@ from finradar.application.synchronization_service import synchronize_and_forecas
 from finradar.domain.data_readiness import ReadinessStatus
 from finradar.domain.financial_snapshot import DatasetKind
 from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
+from finradar.domain.fiscal_consequences import (
+    ConsequenceStatus,
+    LatePaymentPenaltyRule,
+    PenaltyRatePeriod,
+)
 from finradar.infrastructure.connectors.demo import DemoAccountingConnector
 
 
@@ -80,3 +85,49 @@ def test_synchronization_can_apply_active_fiscal_rule_to_connector_facts() -> No
     obligation = outcome.rule_analyses[0].calculation.obligation
     assert obligation is not None
     assert obligation.amount == Decimal("1000.00")
+
+
+def test_synchronization_exposes_contingent_penalty_and_stress_forecast() -> None:
+    fiscal_rule = PercentageFiscalRule(
+        rule_id="fictional-demo-tax",
+        version=1,
+        title="Fictional demo obligation",
+        jurisdiction="GE",
+        tax_regimes=frozenset({"fictional-demo-regime"}),
+        effective_from=date(2026, 1, 1),
+        effective_to=None,
+        base_metric_code="fictional_taxable_revenue",
+        rate=Decimal("0.10"),
+        payment_days_after_period_end=3,
+        obligation_category="fictional_tax",
+        source_reference="fictional-source",
+        status=FiscalRuleStatus.ACTIVE,
+    )
+    penalty_rule = LatePaymentPenaltyRule(
+        rule_id="fictional-demo-penalty",
+        version=1,
+        applies_to_obligation_rule_id="fictional-demo-tax",
+        grace_days=0,
+        rate_periods=(
+            PenaltyRatePeriod(
+                effective_from=date(2026, 1, 1),
+                effective_to=None,
+                daily_rate=Decimal("0.001"),
+            ),
+        ),
+        source_reference="fictional-penalty-source",
+        status=FiscalRuleStatus.ACTIVE,
+    )
+
+    outcome = synchronize_and_forecast(
+        DemoAccountingConnector(as_of=AS_OF),
+        as_of=AS_OF,
+        fiscal_rules=(fiscal_rule,),
+        penalty_rules=(penalty_rule,),
+        stress_overdue_days=5,
+    )
+
+    assert outcome.stress_forecast is not None
+    assert len(outcome.consequences) == 1
+    assert outcome.consequences[0].status is ConsequenceStatus.CONTINGENT
+    assert outcome.stress_forecast.minimum_balance < outcome.forecast.minimum_balance

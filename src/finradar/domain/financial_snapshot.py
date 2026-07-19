@@ -68,6 +68,8 @@ class FinancialEvent:
     status: FinancialEventStatus = FinancialEventStatus.PLANNED
     settled_amount: Decimal = Decimal("0.00")
     obligation_key: str | None = None
+    related_obligation_key: str | None = None
+    fiscal_consequence_type: str | None = None
     category: str | None = None
     account_external_id: str | None = None
 

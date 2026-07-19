@@ -20,6 +20,14 @@ from finradar.domain.fiscal import (
     PercentageFiscalRule,
     ReconciliationAction,
 )
+from finradar.domain.fiscal_consequences import (
+    ConsequenceStatus,
+    FineRule,
+    LatePaymentPenaltyRule,
+    PenaltyRatePeriod,
+    ViolationEvent,
+    ViolationType,
+)
 
 
 AS_OF = date(2026, 7, 19)
@@ -301,3 +309,126 @@ def test_rule_rate_change_changes_result_deterministically() -> None:
         first.rule_analyses[0].calculation.obligation.obligation_key
         == second.rule_analyses[0].calculation.obligation.obligation_key
     )
+
+
+def make_penalty_rule() -> LatePaymentPenaltyRule:
+    return LatePaymentPenaltyRule(
+        rule_id="fictional-late-penalty",
+        version=1,
+        applies_to_obligation_rule_id="fictional-turnover",
+        grace_days=0,
+        rate_periods=(
+            PenaltyRatePeriod(
+                effective_from=date(2026, 1, 1),
+                effective_to=None,
+                daily_rate=Decimal("0.01"),
+            ),
+        ),
+        source_reference="fictional-penalty-source",
+        status=FiscalRuleStatus.ACTIVE,
+    )
+
+
+def test_future_penalty_is_only_in_stress_forecast() -> None:
+    result = analyze_financial_risk(
+        make_snapshot(),
+        (make_rule(),),
+        as_of=AS_OF,
+        horizon_days=10,
+        penalty_rules=(make_penalty_rule(),),
+        stress_overdue_days=5,
+    )
+
+    assert len(result.consequences) == 1
+    consequence = result.consequences[0]
+    assert consequence.status is ConsequenceStatus.CONTINGENT
+    assert consequence.amount == Decimal("5.00")
+    assert result.forecast.minimum_balance == Decimal("-50.00")
+    assert result.stress_forecast.minimum_balance == Decimal("-55.00")
+
+
+def test_actual_overdue_principal_and_penalty_enter_base_forecast() -> None:
+    later_date = date(2026, 7, 25)
+    result = analyze_financial_risk(
+        make_snapshot(),
+        (make_rule(),),
+        as_of=later_date,
+        horizon_days=10,
+        penalty_rules=(make_penalty_rule(),),
+    )
+
+    assert len(result.consequences) == 1
+    consequence = result.consequences[0]
+    assert consequence.status is ConsequenceStatus.CALCULATED
+    assert consequence.amount == Decimal("4.00")
+    assert result.forecast.points[0].outflow == Decimal("104.00")
+
+
+def test_contingent_fine_does_not_enter_base_forecast() -> None:
+    fine_rule = FineRule(
+        rule_id="fictional-fine",
+        version=1,
+        violation_type=ViolationType.LATE_PAYMENT,
+        applies_to_obligation_rule_ids=frozenset({"fictional-turnover"}),
+        fixed_amount=Decimal("25.00"),
+        percentage_of_outstanding=None,
+        minimum_amount=None,
+        maximum_amount=None,
+        requires_authority_decision=True,
+        source_reference="fictional-fine-source",
+        status=FiscalRuleStatus.ACTIVE,
+    )
+    violation = ViolationEvent(
+        violation_id="violation-1",
+        violation_type=ViolationType.LATE_PAYMENT,
+        obligation_key=OBLIGATION_KEY,
+        occurred_on=date(2026, 7, 21),
+        confirmed=True,
+    )
+
+    result = analyze_financial_risk(
+        make_snapshot(),
+        (make_rule(),),
+        as_of=AS_OF,
+        horizon_days=10,
+        fine_rules=(fine_rule,),
+        violation_events=(violation,),
+    )
+
+    assert result.consequences[0].status is ConsequenceStatus.CONTINGENT
+    assert result.forecast.minimum_balance == Decimal("-50.00")
+    assert result.stress_forecast.minimum_balance == Decimal("-75.00")
+
+
+def test_accounting_charge_is_reported_as_accrued_without_duplication() -> None:
+    accrued_penalty = FinancialEvent(
+        external_id="accounting-penalty-1",
+        title="Accrued fictional penalty",
+        amount=Decimal("12.00"),
+        currency="GEL",
+        due_date=date(2026, 7, 22),
+        direction=FinancialDirection.OUTFLOW,
+        kind=FinancialEventKind.PLANNED,
+        status=FinancialEventStatus.CONFIRMED,
+        obligation_key="penalty-record-1",
+        related_obligation_key=OBLIGATION_KEY,
+        fiscal_consequence_type="late_payment_penalty",
+    )
+
+    result = analyze_financial_risk(
+        make_snapshot(events=(accrued_penalty,)),
+        (make_rule(),),
+        as_of=AS_OF,
+        horizon_days=10,
+    )
+
+    accrued = [
+        item for item in result.consequences if item.status is ConsequenceStatus.ACCRUED
+    ]
+    assert len(accrued) == 1
+    assert accrued[0].amount == Decimal("12.00")
+    assert sum(
+        event.amount
+        for event in result.forecast_events
+        if event.reference == "accounting-penalty-1"
+    ) == Decimal("12.00")

@@ -57,6 +57,16 @@ calculate amounts.
   duplicate payment-calendar events before they enter the cash forecast.
 - Unified analytical pipeline combining connector facts, fiscal obligations, and
   the existing liquidity forecast.
+- Fiscal consequence states `accrued`, `calculated`, `contingent`, and
+  `unresolved`, with links back to the originating obligation.
+- Daily late-payment penalty calculation with grace periods, changing rate
+  segments, full coverage validation, and source traceability.
+- Formalized fixed or percentage fine rules with minimum/maximum limits,
+  obligation scope, and authority-decision requirements.
+- Separate primary and stress forecasts: accrued/calculated charges affect the
+  primary forecast, while contingent exposure affects only the stress scenario.
+- Recognition of fiscal charges already supplied by accounting data to prevent
+  duplicate generated penalties or fines.
 - Backward-compatible reading of version 1 snapshots; new snapshots use schema
   version 2.
 - ADR for connector boundaries and regulatory network isolation.
@@ -70,9 +80,10 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 29 tests passed, including fiscal applicability,
+Latest result: Ruff passed; 38 tests passed, including fiscal applicability,
 calculation, reconciliation, migration, snapshot compatibility, immutability,
-round-trip, and UI smoke tests.
+penalty rate changes and gaps, conditional fines, stress scenarios, round-trip,
+and UI smoke tests.
 
 ## Current limitations
 
@@ -80,6 +91,8 @@ round-trip, and UI smoke tests.
   are persisted yet; fiscal rules currently exist only as domain inputs.
 - The fiscal engine supports only a fictional percentage rule and is not a real
   tax implementation.
+- Penalty and fine structures are generic and tested only with fictional rules;
+  no real jurisdictional formula has been activated.
 - No network access has been added.
 - No concrete 1C adapter has been selected or implemented.
 
@@ -87,10 +100,12 @@ round-trip, and UI smoke tests.
 
 1. Persist versioned fiscal rules and their lifecycle without allowing candidate
    rules into calculations.
-2. Add the table of accounting and generated fiscal events and make forecast
-   causes visible.
-3. Extend readiness checks with source-level rejected records and connector
+2. Persist fiscal consequence results and scenario metadata with calculation
+   history.
+3. Add the table of accounting and generated fiscal events, including accrued,
+   calculated, and contingent consequences.
+4. Extend readiness checks with source-level rejected records and connector
    diagnostics.
-4. Add a synchronization-history screen backed by the persisted runs.
-5. Add explicit company jurisdiction and tax-regime fields through a migration;
+5. Add a synchronization-history screen backed by the persisted runs.
+6. Add explicit company jurisdiction and tax-regime fields through a migration;
    until then the current prototype correctly reports limited fiscal readiness.
