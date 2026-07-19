@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from finradar.application.analytical_service import RuleAnalysis, analyze_financial_risk
+from finradar.application.fiscal_analysis_history import FiscalAnalysisRecorder
 from finradar.application.accounting_connector import (
     AccountingConnector,
     SynchronizationRequest,
@@ -32,6 +33,7 @@ class SynchronizationOutcome:
     rule_analyses: tuple[RuleAnalysis, ...] = ()
     stress_forecast: ForecastResult | None = None
     consequences: tuple[FiscalConsequence, ...] = ()
+    fiscal_analysis_run_id: str | None = None
 
 
 def synchronize_and_forecast(
@@ -45,6 +47,7 @@ def synchronize_and_forecast(
     fine_rules: tuple[FineRule, ...] = (),
     violation_events: tuple[ViolationEvent, ...] = (),
     stress_overdue_days: int = 0,
+    analysis_recorder: FiscalAnalysisRecorder | None = None,
 ) -> SynchronizationOutcome:
     connector.test_connection()
     capabilities = connector.capabilities()
@@ -79,6 +82,16 @@ def synchronize_and_forecast(
         violation_events=violation_events,
         stress_overdue_days=stress_overdue_days,
     )
+    fiscal_analysis_run_id = (
+        analysis_recorder.record(
+            analytical_result,
+            analysis_date=as_of,
+            horizon_days=horizon_days,
+            synchronization_run_id=synchronization_run_id,
+        )
+        if analysis_recorder is not None
+        else None
+    )
 
     return SynchronizationOutcome(
         snapshot=snapshot,
@@ -88,4 +101,5 @@ def synchronize_and_forecast(
         rule_analyses=analytical_result.rule_analyses,
         stress_forecast=analytical_result.stress_forecast,
         consequences=analytical_result.consequences,
+        fiscal_analysis_run_id=fiscal_analysis_run_id,
     )

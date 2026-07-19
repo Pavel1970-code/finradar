@@ -14,6 +14,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -110,6 +111,75 @@ class SourceSnapshot(Base):
     )
 
     run: Mapped[SynchronizationRun] = relationship(back_populates="snapshot")
+
+
+class FiscalRuleVersion(Base):
+    __tablename__ = "fiscal_rule_versions"
+    __table_args__ = (UniqueConstraint("rule_id", "version", name="uq_fiscal_rule_version"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    rule_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    rule_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source_reference: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    lifecycle_events: Mapped[list[FiscalRuleLifecycleEvent]] = relationship(
+        back_populates="rule_version",
+        cascade="save-update, merge",
+        order_by="FiscalRuleLifecycleEvent.sequence",
+    )
+
+
+class FiscalRuleLifecycleEvent(Base):
+    __tablename__ = "fiscal_rule_lifecycle_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "rule_version_id", "sequence", name="uq_fiscal_rule_lifecycle_sequence"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    rule_version_id: Mapped[str] = mapped_column(
+        ForeignKey("fiscal_rule_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    rule_version: Mapped[FiscalRuleVersion] = relationship(
+        back_populates="lifecycle_events"
+    )
+
+
+class FiscalAnalysisRun(Base):
+    __tablename__ = "fiscal_analysis_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    synchronization_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("synchronization_runs.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    analysis_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    horizon_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    algorithm_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    rule_result_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    consequence_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
 
 
 class CashAccount(Base):

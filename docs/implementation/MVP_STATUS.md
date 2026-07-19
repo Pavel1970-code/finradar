@@ -67,6 +67,17 @@ calculate amounts.
   primary forecast, while contingent exposure affects only the stress scenario.
 - Recognition of fiscal charges already supplied by accounting data to prevent
   duplicate generated penalties or fines.
+- Immutable fiscal rule definitions stored as canonical JSON with SHA-256 hashes
+  and unique `rule_id`/version identities.
+- Append-only lifecycle events enforcing `candidate -> validated -> reviewed ->
+  active -> superseded`; direct candidate activation is rejected.
+- Automatic supersession of an older active version when a reviewed newer
+  version is activated.
+- Typed loading of active obligation, penalty, and fine rules into the desktop
+  analysis pipeline.
+- Immutable fiscal-analysis history linked to source synchronization runs and
+  containing primary/stress forecasts, applicability, reconciliation,
+  consequences, horizon, and algorithm version.
 - Backward-compatible reading of version 1 snapshots; new snapshots use schema
   version 2.
 - ADR for connector boundaries and regulatory network isolation.
@@ -80,15 +91,16 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 38 tests passed, including fiscal applicability,
+Latest result: Ruff passed; 44 tests passed, including fiscal rule lifecycle,
+version supersession, immutable analysis history, fiscal applicability,
 calculation, reconciliation, migration, snapshot compatibility, immutability,
 penalty rate changes and gaps, conditional fines, stress scenarios, round-trip,
 and UI smoke tests.
 
 ## Current limitations
 
-- No regulatory document, candidate-rule, reviewed-rule, or active-rule models
-  are persisted yet; fiscal rules currently exist only as domain inputs.
+- Regulatory source documents and AI extraction candidates are not ingested yet;
+  the rule registry accepts structured candidates but has no monitoring adapter.
 - The fiscal engine supports only a fictional percentage rule and is not a real
   tax implementation.
 - Penalty and fine structures are generic and tested only with fictional rules;
@@ -98,14 +110,11 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Persist versioned fiscal rules and their lifecycle without allowing candidate
-   rules into calculations.
-2. Persist fiscal consequence results and scenario metadata with calculation
-   history.
-3. Add the table of accounting and generated fiscal events, including accrued,
+1. Add the table of accounting and generated fiscal events, including accrued,
    calculated, and contingent consequences.
-4. Extend readiness checks with source-level rejected records and connector
+2. Add a regulatory rule registry screen with lifecycle and source evidence.
+3. Extend readiness checks with source-level rejected records and connector
    diagnostics.
-5. Add a synchronization-history screen backed by the persisted runs.
-6. Add explicit company jurisdiction and tax-regime fields through a migration;
+4. Add a synchronization and fiscal-analysis history screen.
+5. Add explicit company jurisdiction and tax-regime fields through a migration;
    until then the current prototype correctly reports limited fiscal readiness.
