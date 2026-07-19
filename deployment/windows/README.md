@@ -22,6 +22,9 @@ The directories have intentionally different permissions:
 | Monitor public data | None | Modify | Full control |
 | One-way exchange | Read | Modify | Full control |
 
+The Monitor private-data ACL also protects its signing-key directory. Core
+stores only trusted public keys in its local database.
+
 The firewall blocks Core access to addresses classified by Windows as
 `Internet`, while leaving local/loopback accounting connectors possible. The
 Monitor is blocked from local/intranet addresses, inbound traffic, UDP internet
@@ -47,4 +50,5 @@ release VM must additionally execute adversarial tests under the real identities
 - Neither executable contains the other runtime package.
 
 Do not enable the downloader until all checks pass on the supported Windows
-build and the package-signing/quarantine slice is complete.
+build and the initial trusted public key has been provisioned through the signed
+installer.

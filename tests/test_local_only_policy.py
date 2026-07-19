@@ -184,7 +184,7 @@ def test_runtime_distributions_are_declared_separately() -> None:
         "finradar.*",
     ]
     assert contracts["project"]["name"] == "finradar-contracts"
-    assert "dependencies" not in contracts["project"]
+    assert contracts["project"]["dependencies"] == ["cryptography==49.0.0"]
     assert monitor["project"]["name"] == "finradar-monitor"
     assert monitor["project"]["scripts"] == {
         "finradar-monitor": "finradar_monitor.main:main"

@@ -24,8 +24,9 @@ The solution is split into three dependency zones:
    has no network-client dependency.
 2. `finradar_monitor` is a separate executable. It owns only public regulatory
    documents and extracted public candidate rules. It must not import Core.
-3. `finradar_contracts` is a standard-library-only neutral contract package.
-   It contains no runtime access to either component.
+3. `finradar_contracts` is a neutral contract package. Its only external
+   dependency is the cryptographic implementation used for Ed25519 signatures;
+   it contains no runtime access to either component.
 
 These zones are now separate Python distributions. Core and Monitor each depend
 on the neutral contract wheel; neither wheel embeds the other runtime. Windows
@@ -48,7 +49,8 @@ The package contract:
 - rejects duplicate JSON keys, unexpected fields, and known financial fields;
 - requires official HTTPS source URLs from an explicit host allowlist;
 - links every candidate to source evidence;
-- verifies a canonical SHA-256 payload checksum;
+- verifies a canonical SHA-256 payload checksum and an Ed25519 producer
+  signature;
 - contains public candidate data only, never accounting data;
 - cannot activate a rule. Existing lifecycle checks still require validation,
   review, and activation before deterministic calculations can use it.
@@ -73,7 +75,7 @@ requires a reviewed code change.
 | Malicious or deceptive source URL | Exact hostname allowlist, HTTPS-only, no credentials, port 443 only |
 | Redirect to an untrusted host | Policy requires revalidation after every redirect; downloader is not implemented yet |
 | Oversized or malformed inbound data | Byte and item limits, strict JSON shape, duplicate-key rejection |
-| Corrupted package | Canonical payload SHA-256 check |
+| Corrupted or replaced package | Canonical SHA-256 plus Ed25519 signature against a Core-owned trust store |
 | AI-generated rule entering a forecast | Candidate-only import plus deterministic registry lifecycle |
 | Public document containing active content | JSON-only exchange; no archive or executable import |
 
@@ -94,9 +96,9 @@ requires a reviewed code change.
 
 ## Controls still required before enabling network access
 
-- Add package authenticity (signed manifest and trusted key rotation). SHA-256
-  detects corruption but does not prove who produced a package.
-- Define quarantine, replay protection, retention, and failed-import audit logs.
+- Define and implement raw quarantine retention; replay protection and immutable
+  failed-import audit logs are implemented.
+- Bootstrap the initial trusted public key through the signed installer.
 - Code-sign both executables and the installer without storing signing keys in
   source control.
 - Run the documented adversarial acceptance test proving Monitor cannot open a
@@ -104,6 +106,9 @@ requires a reviewed code change.
 
 Network retrieval must remain disabled until these controls are implemented and
 verified on the target Windows packaging environment.
+
+Package authenticity, rotation, quarantine, and replay decisions are specified
+in [ADR-007](ADR-007-signed-regulatory-ingestion.md).
 
 ## Consequences
 

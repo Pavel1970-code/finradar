@@ -83,8 +83,9 @@ calculate amounts.
 - ADR for connector boundaries and regulatory network isolation.
 - Separate `finradar-monitor` process entry point with its own platform data
   directory, `regulatory_monitor.db`, and public-package outbox.
-- Neutral standard-library-only `finradar_contracts` package shared across the
-  trust boundary without importing either runtime.
+- Neutral `finradar_contracts` package shared across the trust boundary without
+  importing either runtime; its only external dependency is the Ed25519
+  cryptographic implementation.
 - Strict one-way regulatory package format with byte/item limits, duplicate-key
   rejection, source evidence links, public-data field controls, and canonical
   SHA-256 integrity verification.
@@ -109,6 +110,22 @@ calculate amounts.
 - Separate configurable Monitor private-data and one-way exchange directories.
 - Windows post-provisioning checks for expected protected ACLs, principals,
   firewall rules, and executable targets.
+- Regulatory package schema version 2 with Ed25519 domain-separated signatures,
+  signed package/key identifiers and timestamps, a 48-hour default expiry, and
+  a hard seven-day lifetime limit.
+- Monitor-owned signing-key store with UUID identities, validity periods,
+  public-key fingerprint verification, active-key selection, and restrictive
+  POSIX development permissions.
+- Core-owned append-only public-key trust store with overlapping rotation keys
+  and irreversible revocation lifecycle.
+- Authenticated Core importer with future/expiry checks, accepted and quarantine
+  archives, content-hash verification, and recursive secret-field rejection.
+- Database-backed replay protection and an immutable audit record for accepted,
+  malformed, untrusted, revoked, expired, invalid-signature, oversized,
+  symbolic-link, and replayed attempts.
+- Additive migrations `0004` and `0005`; the prototype database is at
+  `0005_regulatory_preflight` with its existing company and eight cash-flow
+  records preserved.
 
 ## Verification
 
@@ -119,7 +136,9 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 65 tests passed, including distribution manifests
+Latest result: Ruff passed; 78 tests passed, including Ed25519 tamper rejection,
+key rotation and revocation, package expiry, quarantine, replay protection,
+immutable import audit, archive-integrity verification, distribution manifests
 and wheel-boundary verification, the regulatory trust
 boundary, malformed/tampered package rejection, official-source policy, separate
 monitor storage, fiscal rule lifecycle,
@@ -136,8 +155,12 @@ and UI smoke tests.
 - Windows artifact specifications and provisioning scripts exist but have not
   been executed on the supported Windows release VM. Therefore OS isolation is
   prepared, not yet release-verified.
-- Executable/installer code signing, package signatures, quarantine, replay
-  protection, and import audit history are not implemented.
+- Executable/installer code signing and trusted-key bootstrap through the
+  installer are not implemented. Package signing and Core trust are implemented.
+- Raw quarantine retention is not implemented; audit history is retained
+  immutably.
+- Monitor private keys are protected by file permissions/ACL design, not yet by
+  Windows CNG, DPAPI, or hardware-backed storage.
 - The fiscal engine supports only a fictional percentage rule and is not a real
   tax implementation.
 - Penalty and fine structures are generic and tested only with fictional rules;
@@ -149,8 +172,8 @@ and UI smoke tests.
 
 1. Run the independent executable builds and the documented cross-identity
    security acceptance suite on the supported Windows release VM.
-2. Add signed manifests, trusted-key rotation, package quarantine, replay
-   protection, and import audit history.
+2. Bootstrap the first trusted public key through the signed installer and
+   finalize private-key custody and quarantine retention.
 3. Implement a constrained downloader that revalidates the allowlist after every
    redirect, then connect one stable official Georgian source without AI.
 4. Map accepted public packages into the existing candidate-rule lifecycle and

@@ -182,6 +182,90 @@ class FiscalAnalysisRun(Base):
     )
 
 
+class RegulatoryTrustedKey(Base):
+    __tablename__ = "regulatory_trusted_keys"
+
+    key_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    algorithm: Mapped[str] = mapped_column(String(20), nullable=False)
+    public_key_base64: Mapped[str] = mapped_column(String(44), nullable=False)
+    public_key_fingerprint: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    lifecycle_events: Mapped[list[RegulatoryTrustedKeyEvent]] = relationship(
+        back_populates="trusted_key",
+        cascade="save-update, merge",
+        order_by="RegulatoryTrustedKeyEvent.sequence",
+    )
+
+
+class RegulatoryTrustedKeyEvent(Base):
+    __tablename__ = "regulatory_trusted_key_events"
+    __table_args__ = (
+        UniqueConstraint("key_id", "sequence", name="uq_regulatory_key_event_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    key_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_trusted_keys.key_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+    trusted_key: Mapped[RegulatoryTrustedKey] = relationship(
+        back_populates="lifecycle_events"
+    )
+
+
+class RegulatoryPackageImport(Base):
+    __tablename__ = "regulatory_package_imports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    package_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    original_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    archive_location: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    signing_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    reason_code: Mapped[str] = mapped_column(String(60), nullable=False)
+    reason_detail: Mapped[str] = mapped_column(String(500), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
+class RegulatoryAcceptedPackage(Base):
+    __tablename__ = "regulatory_accepted_packages"
+
+    package_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    import_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_package_imports.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    signing_key_id: Mapped[str] = mapped_column(
+        ForeignKey("regulatory_trusted_keys.key_id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+
+
 class CashAccount(Base):
     __tablename__ = "cash_accounts"
 

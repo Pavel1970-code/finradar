@@ -28,6 +28,7 @@ POLICIES = {
         name="Contracts",
         required_packages=frozenset({"finradar_contracts"}),
         forbidden_packages=frozenset({"finradar", "finradar_monitor"}),
+        required_dependencies=frozenset({"cryptography"}),
     ),
     "monitor": WheelPolicy(
         name="Monitor",

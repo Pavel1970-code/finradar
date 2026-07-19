@@ -38,6 +38,7 @@ def test_independent_wheel_policies_accept_expected_contents(tmp_path: Path) -> 
         tmp_path / "contracts.whl",
         distribution="finradar_contracts",
         packages={"finradar_contracts"},
+        dependencies=("cryptography==49.0.0",),
     )
     monitor = make_wheel(
         tmp_path / "monitor.whl",

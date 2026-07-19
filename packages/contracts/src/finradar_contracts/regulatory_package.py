@@ -6,16 +6,25 @@ import hashlib
 import json
 import math
 from collections.abc import Iterable, Mapping
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
+from finradar_contracts.signatures import (
+    SIGNATURE_ALGORITHM,
+    RegulatorySignatureError,
+    decode_base64,
+    signature_value,
+    verify_signature,
+)
 from finradar_contracts.source_policy import SourcePolicyError, validate_official_source_url
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PRODUCER = "finradar-regulatory-monitor"
 MAX_PACKAGE_BYTES = 5 * 1024 * 1024
+DEFAULT_PACKAGE_LIFETIME = timedelta(hours=48)
+MAX_PACKAGE_LIFETIME = timedelta(days=7)
 MAX_SOURCES = 100
 MAX_CANDIDATES = 1_000
 MAX_EVIDENCE_CHARACTERS = 20_000
@@ -24,10 +33,13 @@ PACKAGE_KEYS = {
     "schema_version",
     "package_id",
     "created_at",
+    "expires_at",
     "producer",
     "payload",
     "payload_sha256",
+    "signature",
 }
+SIGNATURE_KEYS = {"algorithm", "key_id", "value"}
 PAYLOAD_KEYS = {"sources", "candidates"}
 SOURCE_KEYS = {
     "source_id",
@@ -76,6 +88,14 @@ FORBIDDEN_FINANCIAL_KEYS = {
     "transaction_id",
     "transactions",
 }
+FORBIDDEN_SECRET_KEYS = {
+    "api_key",
+    "access_token",
+    "password",
+    "private_key",
+    "refresh_token",
+    "secret",
+}
 
 
 class RegulatoryPackageError(ValueError):
@@ -86,13 +106,17 @@ def build_regulatory_package(
     *,
     sources: Iterable[Mapping[str, Any]],
     candidates: Iterable[Mapping[str, Any]],
+    signing_key_id: str,
+    signing_private_key: bytes,
     package_id: str | None = None,
     created_at: datetime | None = None,
+    expires_at: datetime | None = None,
 ) -> dict[str, Any]:
     timestamp = created_at or datetime.now(timezone.utc)
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise RegulatoryPackageError("created_at must include a timezone")
 
+    expiration = expires_at or timestamp + DEFAULT_PACKAGE_LIFETIME
     payload = {
         "sources": [dict(item) for item in sources],
         "candidates": [dict(item) for item in candidates],
@@ -101,10 +125,17 @@ def build_regulatory_package(
         "schema_version": SCHEMA_VERSION,
         "package_id": package_id or str(uuid4()),
         "created_at": timestamp.isoformat(),
+        "expires_at": expiration.isoformat(),
         "producer": PRODUCER,
         "payload": payload,
         "payload_sha256": _payload_checksum(payload),
+        "signature": {
+            "algorithm": SIGNATURE_ALGORITHM,
+            "key_id": signing_key_id,
+            "value": "",
+        },
     }
+    package["signature"]["value"] = signature_value(package, signing_private_key)
     return validate_regulatory_package(package)
 
 
@@ -142,9 +173,28 @@ def validate_regulatory_package(package: Mapping[str, Any]) -> dict[str, Any]:
     if document["schema_version"] != SCHEMA_VERSION:
         raise RegulatoryPackageError("unsupported regulatory package schema version")
     _require_uuid(document["package_id"], "package.package_id")
-    _require_datetime(document["created_at"], "package.created_at")
+    created_at = _require_datetime(document["created_at"], "package.created_at")
+    expires_at = _require_datetime(document["expires_at"], "package.expires_at")
+    if expires_at <= created_at:
+        raise RegulatoryPackageError("package.expires_at must be after package.created_at")
+    if expires_at - created_at > MAX_PACKAGE_LIFETIME:
+        raise RegulatoryPackageError("regulatory package lifetime exceeds seven days")
     if document["producer"] != PRODUCER:
         raise RegulatoryPackageError("unexpected package producer")
+
+    signature = _require_object(document["signature"], "package.signature")
+    _require_exact_keys(signature, SIGNATURE_KEYS, "package.signature")
+    if signature["algorithm"] != SIGNATURE_ALGORITHM:
+        raise RegulatoryPackageError("unsupported package signature algorithm")
+    _require_uuid(signature["key_id"], "package.signature.key_id")
+    try:
+        decode_base64(
+            signature["value"],
+            expected_bytes=64,
+            label="package.signature.value",
+        )
+    except RegulatorySignatureError as error:
+        raise RegulatoryPackageError(str(error)) from error
 
     payload = _require_object(document["payload"], "package.payload")
     _require_exact_keys(payload, PAYLOAD_KEYS, "package.payload")
@@ -212,6 +262,18 @@ def validate_regulatory_package(package: Mapping[str, Any]) -> dict[str, Any]:
         raise RegulatoryPackageError("payload checksum does not match package contents")
 
     return json.loads(_canonical_json(document))
+
+
+def verify_regulatory_package_signature(
+    package: Mapping[str, Any],
+    public_key: bytes,
+) -> dict[str, Any]:
+    validated = validate_regulatory_package(package)
+    try:
+        verify_signature(validated, public_key)
+    except RegulatorySignatureError as error:
+        raise RegulatoryPackageError(str(error)) from error
+    return validated
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -343,8 +405,11 @@ def _validate_public_json(value: Any, path: str, depth: int = 0) -> None:
 def _reject_financial_keys(value: Any, path: str = "package") -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
-            if key.casefold() in FORBIDDEN_FINANCIAL_KEYS:
+            normalized_key = key.casefold()
+            if normalized_key in FORBIDDEN_FINANCIAL_KEYS:
                 raise RegulatoryPackageError(f"{path}.{key} is a forbidden financial field")
+            if normalized_key in FORBIDDEN_SECRET_KEYS:
+                raise RegulatoryPackageError(f"{path}.{key} is a forbidden secret field")
             _reject_financial_keys(item, f"{path}.{key}")
     elif isinstance(value, list):
         for index, item in enumerate(value):

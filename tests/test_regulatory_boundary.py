@@ -9,7 +9,7 @@ import pytest
 
 from finradar.infrastructure.regulatory_inbox import (
     RegulatoryInboxError,
-    validate_regulatory_package_file,
+    parse_untrusted_regulatory_package_file,
 )
 from finradar_contracts import (
     MAX_PACKAGE_BYTES,
@@ -17,15 +17,22 @@ from finradar_contracts import (
     build_regulatory_package,
     decode_regulatory_package,
     encode_regulatory_package,
+    generate_private_key_bytes,
+    public_key_bytes,
+    verify_regulatory_package_signature,
 )
 from finradar_monitor.package_export import export_regulatory_package
 from finradar_monitor.paths import DATA_DIRECTORY_ENV, OUTBOX_DIRECTORY_ENV, MonitorPaths
 from finradar_monitor.source_policy import SourcePolicyError, validate_official_source_url
+from finradar_monitor.signing_keys import MonitorSigningKey
 from finradar_monitor.storage import PublicDocument, RegulatoryStorage
 
 
 SOURCE_ID = "3b35148e-48af-4b08-9654-b13719f7d867"
 CANDIDATE_ID = "c02f613a-9fa1-4d95-88b7-a2d1248ab7d4"
+SIGNING_KEY_ID = "ba57de14-7fa4-4a66-8d1e-72297ca18236"
+SIGNING_PRIVATE_KEY = generate_private_key_bytes()
+SIGNING_PUBLIC_KEY = public_key_bytes(SIGNING_PRIVATE_KEY)
 
 
 def valid_source() -> dict[str, object]:
@@ -63,6 +70,8 @@ def valid_package() -> dict[str, object]:
     return build_regulatory_package(
         sources=[valid_source()],
         candidates=[valid_candidate()],
+        signing_key_id=SIGNING_KEY_ID,
+        signing_private_key=SIGNING_PRIVATE_KEY,
         package_id="6692c33a-91c8-436d-850d-38a59b16d672",
         created_at=datetime(2026, 7, 19, 9, 15, tzinfo=timezone.utc),
     )
@@ -74,6 +83,7 @@ def test_regulatory_package_round_trip() -> None:
 
     assert decoded == package
     assert decoded["payload"]["candidates"][0]["confidence"] == 85
+    assert verify_regulatory_package_signature(decoded, SIGNING_PUBLIC_KEY) == decoded
 
 
 def test_regulatory_package_rejects_tampering() -> None:
@@ -93,7 +103,47 @@ def test_regulatory_package_rejects_unknown_and_financial_fields() -> None:
     candidate = valid_candidate()
     candidate["rule_data"]["company_id"] = 12
     with pytest.raises(RegulatoryPackageError, match="forbidden financial field"):
-        build_regulatory_package(sources=[valid_source()], candidates=[candidate])
+        build_regulatory_package(
+            sources=[valid_source()],
+            candidates=[candidate],
+            signing_key_id=SIGNING_KEY_ID,
+            signing_private_key=SIGNING_PRIVATE_KEY,
+        )
+
+    candidate = valid_candidate()
+    candidate["rule_data"]["private_key"] = "must-never-cross"
+    with pytest.raises(RegulatoryPackageError, match="forbidden secret field"):
+        build_regulatory_package(
+            sources=[valid_source()],
+            candidates=[candidate],
+            signing_key_id=SIGNING_KEY_ID,
+            signing_private_key=SIGNING_PRIVATE_KEY,
+        )
+
+
+def test_regulatory_package_rejects_invalid_signature() -> None:
+    package = valid_package()
+    package["created_at"] = "2026-07-19T09:16:00+00:00"
+
+    with pytest.raises(RegulatoryPackageError, match="signature verification"):
+        verify_regulatory_package_signature(package, SIGNING_PUBLIC_KEY)
+
+
+def test_regulatory_package_limits_signature_and_lifetime() -> None:
+    package = valid_package()
+    package["signature"]["value"] = "invalid"
+    with pytest.raises(RegulatoryPackageError, match="canonical base64"):
+        decode_regulatory_package(json.dumps(package))
+
+    with pytest.raises(RegulatoryPackageError, match="seven days"):
+        build_regulatory_package(
+            sources=[valid_source()],
+            candidates=[valid_candidate()],
+            signing_key_id=SIGNING_KEY_ID,
+            signing_private_key=SIGNING_PRIVATE_KEY,
+            created_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
+            expires_at=datetime(2026, 7, 27, tzinfo=timezone.utc),
+        )
 
 
 def test_regulatory_package_rejects_unsafe_json() -> None:
@@ -145,6 +195,7 @@ def test_monitor_has_separate_storage_location(tmp_path: Path, monkeypatch) -> N
 
     assert UUID(source_id)
     assert paths.database_path == monitor_directory / "regulatory_monitor.db"
+    assert paths.signing_key_directory == monitor_directory / "signing-keys"
     assert storage.count_documents() == 1
     assert not (monitor_directory / "finradar.db").exists()
     with sqlite3.connect(paths.database_path) as connection:
@@ -171,16 +222,25 @@ def test_monitor_outbox_can_be_an_acl_separated_exchange(tmp_path: Path, monkeyp
 
 
 def test_monitor_export_is_accepted_by_core_inbox(tmp_path: Path) -> None:
+    signing_key = MonitorSigningKey(
+        key_id=SIGNING_KEY_ID,
+        private_key=SIGNING_PRIVATE_KEY,
+        public_key=SIGNING_PUBLIC_KEY,
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2027, 1, 1, tzinfo=timezone.utc),
+    )
     package_path = export_regulatory_package(
         outbox_directory=tmp_path,
         sources=[valid_source()],
         candidates=[valid_candidate()],
+        signing_key=signing_key,
     )
 
-    imported = validate_regulatory_package_file(package_path)
+    imported = parse_untrusted_regulatory_package_file(package_path)
 
     assert imported["producer"] == "finradar-regulatory-monitor"
     assert imported["payload"]["sources"][0]["source_id"] == SOURCE_ID
+    assert imported["signature"]["key_id"] == SIGNING_KEY_ID
 
 
 def test_core_inbox_rejects_non_json_extension(tmp_path: Path) -> None:
@@ -188,4 +248,4 @@ def test_core_inbox_rejects_non_json_extension(tmp_path: Path) -> None:
     package_path.write_bytes(encode_regulatory_package(valid_package()))
 
     with pytest.raises(RegulatoryInboxError, match="JSON"):
-        validate_regulatory_package_file(package_path)
+        parse_untrusted_regulatory_package_file(package_path)

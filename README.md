@@ -44,6 +44,10 @@ three independent Python distributions under the repository root and
 [`packaging/windows`](packaging/windows/README.md) and
 [`deployment/windows`](deployment/windows/README.md).
 
+Signed regulatory ingestion, trusted-key rotation, quarantine, and replay
+protection are defined in
+[ADR-007: Signed regulatory package ingestion](docs/architecture/ADR-007-signed-regulatory-ingestion.md).
+
 ## Status
 
 Early desktop prototype under active development.

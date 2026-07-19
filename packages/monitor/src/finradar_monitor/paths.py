@@ -16,6 +16,7 @@ OUTBOX_DIRECTORY_ENV = "FINRADAR_REGULATORY_OUTBOX"
 class MonitorPaths:
     data_directory: Path
     database_path: Path
+    signing_key_directory: Path
     outbox_directory: Path
 
     @classmethod
@@ -43,6 +44,7 @@ class MonitorPaths:
         return cls(
             data_directory=data_directory,
             database_path=data_directory / "regulatory_monitor.db",
+            signing_key_directory=data_directory / "signing-keys",
             outbox_directory=outbox_directory.resolve(),
         )
 
@@ -52,6 +54,7 @@ class MonitorPaths:
 
     def create(self) -> None:
         self.data_directory.mkdir(parents=True, exist_ok=True)
+        self.signing_key_directory.mkdir(parents=True, exist_ok=True)
         self.outbox_directory.mkdir(parents=True, exist_ok=True)
 
 

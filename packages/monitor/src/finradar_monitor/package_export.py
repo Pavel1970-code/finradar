@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from finradar_contracts import build_regulatory_package, encode_regulatory_package
+from finradar_monitor.signing_keys import MonitorSigningKey
 
 
 def export_regulatory_package(
@@ -16,10 +17,16 @@ def export_regulatory_package(
     outbox_directory: Path,
     sources: Iterable[Mapping[str, Any]],
     candidates: Iterable[Mapping[str, Any]],
+    signing_key: MonitorSigningKey,
 ) -> Path:
     outbox = outbox_directory.resolve()
     outbox.mkdir(parents=True, exist_ok=True)
-    package = build_regulatory_package(sources=sources, candidates=candidates)
+    package = build_regulatory_package(
+        sources=sources,
+        candidates=candidates,
+        signing_key_id=signing_key.key_id,
+        signing_private_key=signing_key.private_key,
+    )
     encoded = encode_regulatory_package(package)
     destination = outbox / f"{package['package_id']}.finradar-regulatory.json"
 
