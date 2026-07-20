@@ -214,18 +214,21 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Complete the fictional signed-package path into a non-active candidate rule
+1. Persist the exact rule-set provenance needed for an auditable
+   "repeat on the same inputs" action; do not substitute the current scenario
+   version and call it the same historical input.
+2. Complete the fictional signed-package path into a non-active candidate rule
    and add a bounded internal review/diagnostic view.
-2. Produce an unsigned internal portable build and execute the documented MVP
+3. Produce an unsigned internal portable build and execute the documented MVP
    acceptance suite on a clean Windows 11 VM. Code signing remains required
    before external distribution, not for this fictional-data acceptance build.
-3. Run final first-start, restart/history, offline, frozen-resource, database
+4. Run final first-start, restart/history, offline, frozen-resource, database
    growth, and timing checks; then refresh the factual project description.
-4. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
+5. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
    prototype decision) before enabling Monitor outside the local prototype.
-5. Select the first target 1C configuration and implement one read-only local
+6. Select the first target 1C configuration and implement one read-only local
    transport plus its mapping profile and golden fixture export.
-6. Select the first bank statement format/provider and add its adapter with
+7. Select the first bank statement format/provider and add its adapter with
    golden reconciliation fixtures.
-7. Implement a constrained downloader that revalidates the allowlist after every
+8. Implement a constrained downloader that revalidates the allowlist after every
    redirect, then connect one stable official Georgian source without AI.
