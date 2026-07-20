@@ -2,14 +2,14 @@ import json
 import os
 import threading
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -44,11 +44,12 @@ from finradar.infrastructure.demo_fiscal_rules import DemoFiscalRuleBootstrapper
 from finradar.infrastructure.fiscal_analysis_history import (
     SqlAlchemyFiscalAnalysisHistory,
 )
+from finradar.infrastructure.models import FiscalAnalysisRun, SynchronizationRun
 from finradar.infrastructure.fiscal_rule_registry import SqlAlchemyFiscalRuleRegistry
 from finradar.infrastructure.synchronization_history import (
     SqlAlchemySynchronizationHistory,
 )
-from finradar.ui.main_window import ForecastUiState, MainWindow
+from finradar.ui.main_window import BalanceChart, ForecastUiState, MainWindow
 
 
 def _session_factory(tmp_path: Path):
@@ -291,6 +292,9 @@ def test_forecast_window_runs_once_and_replaces_idle_state(qtbot) -> None:
 
     assert calls == 1
     assert window.findChild(QPushButton, "forecastButton").text() == "Обновить прогноз"
+    assert window.findChild(BalanceChart, "balanceChart").property("pointCount") == 30
+    assert window.findChildren(QLabel, "paymentAmount")
+    assert window.findChild(QLabel, "lastCalculated") is not None
 
 
 def test_forecast_window_allows_retry_after_error(qtbot) -> None:
@@ -372,6 +376,88 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
     )
     metric_values = window.findChildren(QLabel, "metricValue")
     assert metric_values[2].text() == "-1,709.00 GEL"
+    assert window.findChild(BalanceChart, "balanceChart").property(
+        "minimumBalance"
+    ) == "-1709.00"
+
+
+def test_history_persists_and_opens_without_recalculation(
+    tmp_path: Path,
+    qtbot,
+) -> None:
+    session_factory = _session_factory(tmp_path)
+    first_controller = DemoMvpController(session_factory)
+    outcome = first_controller.run("base_cash_gap")
+    assert outcome.forecast is not None
+
+    restarted_controller = DemoMvpController(session_factory)
+    items = restarted_controller.history()
+
+    assert len(items) == 1
+    assert items[0].available
+    assert items[0].scenario_id == "base_cash_gap"
+    assert items[0].scenario_version == 1
+    assert items[0].required_funding == outcome.forecast.required_funding
+
+    calls = 0
+
+    def runner(scenario_id: str):
+        nonlocal calls
+        calls += 1
+        return restarted_controller.run(scenario_id)
+
+    window = MainWindow(
+        horizon_days=30,
+        forecast_runner=runner,
+        demo_scenarios=tuple(
+            (item.scenario_id, item.title) for item in restarted_controller.options()
+        ),
+        initial_scenario_id="base_cash_gap",
+        history_provider=restarted_controller.history,
+        history_loader=restarted_controller.load_history,
+    )
+    qtbot.addWidget(window)
+    window.show()
+    button = window.findChild(QPushButton, "historyOpenButton")
+
+    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
+
+    assert calls == 0
+    assert window.findChild(QPushButton, "historyCloseButton") is not None
+    assert window.findChild(BalanceChart, "balanceChart").property("pointCount") == 30
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "Финансовый расчёт повторно не выполнялся" in texts
+    assert "ООО «Демо Орбита»" in texts
+
+
+def test_history_marks_failed_integrity_check_as_unavailable(tmp_path: Path) -> None:
+    session_factory = _session_factory(tmp_path)
+    controller = DemoMvpController(session_factory)
+    controller.run("base_cash_gap")
+    with session_factory() as session:
+        synchronization_run_id = session.scalar(select(SynchronizationRun.id))
+        assert synchronization_run_id is not None
+        corrupted = FiscalAnalysisRun(
+            synchronization_run_id=synchronization_run_id,
+            analysis_date=date(2026, 7, 18),
+            horizon_days=30,
+            algorithm_version="fiscal-v1",
+            rule_result_count=0,
+            consequence_count=0,
+            content_json="{}",
+            content_hash="0" * 64,
+            created_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        )
+        session.add(corrupted)
+        session.commit()
+        corrupted_id = corrupted.id
+
+    items = controller.history()
+
+    assert not items[0].available
+    assert "целостности" in (items[0].error_message or "")
+    with pytest.raises(ValueError, match="integrity"):
+        controller.load_history(corrupted_id)
 
 
 def test_facade_rejects_invalid_horizon() -> None:

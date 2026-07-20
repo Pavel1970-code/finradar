@@ -1,8 +1,10 @@
 from collections.abc import Callable
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QThread, Signal
+from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen
 
 from PySide6.QtWidgets import (
     QFrame,
@@ -18,8 +20,13 @@ from PySide6.QtWidgets import (
 )
 
 from finradar.application.synchronization_service import SynchronizationOutcome
+from finradar.application.forecast_history import (
+    ForecastHistoryDetails,
+    ForecastHistoryItem,
+)
 from finradar.domain.data_readiness import ReadinessStatus
 from finradar.domain.financial_snapshot import DatasetKind
+from finradar.domain.forecast import ForecastResult
 from finradar.ui.forecast_view_model import (
     ForecastViewModel,
     build_forecast_view_model,
@@ -58,6 +65,109 @@ def format_money(
 def format_signed_money(amount: Decimal, currency: str) -> str:
     sign = "+" if amount > Decimal("0.00") else ""
     return f"{sign}{amount:,.2f} {currency}"
+
+
+class BalanceChart(QWidget):
+    """Small dependency-free balance chart for the desktop forecast."""
+
+    def __init__(self, result: ForecastResult, currency: str) -> None:
+        super().__init__()
+        self._result = result
+        self._currency = currency
+        self.setObjectName("balanceChart")
+        self.setMinimumHeight(250)
+        self.setProperty("pointCount", len(result.points))
+        self.setProperty("minimumBalance", str(result.minimum_balance))
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#151c2f"))
+        if not self._result.points:
+            return
+
+        margins = (74.0, 24.0, 24.0, 42.0)
+        plot = QRectF(
+            margins[0],
+            margins[1],
+            max(1.0, self.width() - margins[0] - margins[2]),
+            max(1.0, self.height() - margins[1] - margins[3]),
+        )
+        balances = [self._result.opening_balance]
+        balances.extend(point.closing_balance for point in self._result.points)
+        low = min(balances + [Decimal("0.00")])
+        high = max(balances + [Decimal("0.00")])
+        if low == high:
+            high += Decimal("1.00")
+        padding = max((high - low) * Decimal("0.08"), Decimal("1.00"))
+        low -= padding
+        high += padding
+
+        def y_position(value: Decimal) -> float:
+            ratio = float((high - value) / (high - low))
+            return plot.top() + ratio * plot.height()
+
+        painter.setPen(QPen(QColor("#334155"), 1))
+        for index in range(5):
+            y = plot.top() + plot.height() * index / 4
+            painter.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y))
+            value = high - (high - low) * Decimal(index) / Decimal(4)
+            visible_value = (
+                Decimal("0.00")
+                if abs(value) < (high - low) * Decimal("0.01")
+                else value
+            )
+            label = f"{visible_value:,.0f}"
+            painter.setPen(QColor("#94a3b8"))
+            painter.drawText(
+                QRectF(4, y - 9, margins[0] - 12, 18),
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                label,
+            )
+            painter.setPen(QPen(QColor("#334155"), 1))
+
+        if low < Decimal("0.00") < high:
+            zero_y = y_position(Decimal("0.00"))
+            painter.setPen(QPen(QColor("#fb7185"), 1, Qt.PenStyle.DashLine))
+            painter.drawLine(
+                QPointF(plot.left(), zero_y), QPointF(plot.right(), zero_y)
+            )
+
+        points = self._result.points
+        path = QPainterPath()
+        for index, point in enumerate(points):
+            x = (
+                plot.left()
+                if len(points) == 1
+                else plot.left() + plot.width() * index / (len(points) - 1)
+            )
+            chart_point = QPointF(x, y_position(point.closing_balance))
+            if index == 0:
+                path.moveTo(chart_point)
+            else:
+                path.lineTo(chart_point)
+        painter.setPen(QPen(QColor("#5eead4"), 3))
+        painter.drawPath(path)
+
+        painter.setPen(QColor("#94a3b8"))
+        font_metrics = QFontMetrics(painter.font())
+        labels = ((0, points[0].day), (len(points) - 1, points[-1].day))
+        for index, day in labels:
+            x = (
+                plot.left()
+                if len(points) == 1
+                else plot.left() + plot.width() * index / (len(points) - 1)
+            )
+            label = day.strftime("%d.%m")
+            width = font_metrics.horizontalAdvance(label)
+            painter.drawText(QPointF(x - width / 2, plot.bottom() + 25), label)
+
+        painter.drawText(
+            QRectF(plot.left(), 2, plot.width(), 18),
+            Qt.AlignmentFlag.AlignRight,
+            self._currency,
+        )
 
 
 def create_metric_card(
@@ -101,6 +211,9 @@ class MainWindow(QMainWindow):
         demo_scenarios: tuple[tuple[str, str], ...] = (),
         initial_scenario_id: str | None = None,
         demo_notice: str | None = None,
+        calculated_at: datetime | None = None,
+        history_provider: Callable[[], tuple[ForecastHistoryItem, ...]] | None = None,
+        history_loader: Callable[[str], ForecastHistoryDetails] | None = None,
     ) -> None:
         super().__init__()
 
@@ -112,12 +225,19 @@ class MainWindow(QMainWindow):
         if self._selected_scenario_id is None and demo_scenarios:
             self._selected_scenario_id = demo_scenarios[0][0]
         self._demo_notice = demo_notice
+        self._calculated_at = calculated_at
+        self._history_provider = history_provider
+        self._history_loader = history_loader
+        self._history_items: tuple[ForecastHistoryItem, ...] = ()
+        self._history_details: ForecastHistoryDetails | None = None
+        self._history_error: str | None = None
         self._error_message: str | None = None
         self._worker: _ForecastWorker | None = None
         self._show_stress = False
         self._state = (
             ForecastUiState.RESULT if analysis is not None else ForecastUiState.IDLE
         )
+        self._refresh_history()
 
         self.setWindowTitle("FinRadar — Financial Early Warning")
         self.resize(1200, 760)
@@ -154,9 +274,12 @@ class MainWindow(QMainWindow):
 
     def _accept_result(self, analysis: SynchronizationOutcome) -> None:
         self._analysis = analysis
+        self._calculated_at = datetime.now().astimezone()
+        self._history_details = None
         self._show_stress = False
         self._state = ForecastUiState.RESULT
         self._error_message = None
+        self._refresh_history()
         self._render()
 
     def _accept_error(self, message: str) -> None:
@@ -197,7 +320,9 @@ class MainWindow(QMainWindow):
 
         self._build_action_panel(root_layout)
 
-        if self._state is ForecastUiState.IDLE:
+        if self._history_details is not None:
+            self._build_history_details(root_layout, self._history_details)
+        elif self._state is ForecastUiState.IDLE:
             self._build_status_card(
                 root_layout,
                 "Прогноз ещё не рассчитан",
@@ -237,9 +362,21 @@ class MainWindow(QMainWindow):
                 self._build_comparison_report(root_layout, view_model)
                 self._build_stress_report(root_layout, self._analysis)
 
+        self._build_history(root_layout)
+
         root_layout.addStretch()
         scroll_area.setWidget(content_widget)
         self.setCentralWidget(scroll_area)
+
+    def _refresh_history(self) -> None:
+        if self._history_provider is None:
+            return
+        try:
+            self._history_items = self._history_provider()
+            self._history_error = None
+        except Exception:  # Local history failure must not prevent a new forecast.
+            self._history_items = ()
+            self._history_error = "Не удалось прочитать локальную историю прогнозов."
 
     def _build_action_panel(self, root_layout: QVBoxLayout) -> None:
         if self._forecast_runner is None:
@@ -449,6 +586,14 @@ class MainWindow(QMainWindow):
         subtitle.setObjectName("subtitle")
         root_layout.addWidget(subtitle)
 
+        if self._calculated_at is not None:
+            calculated_label = QLabel(
+                "Последний успешный расчёт: "
+                f"{self._calculated_at.astimezone().strftime('%d.%m.%Y %H:%M')}"
+            )
+            calculated_label.setObjectName("lastCalculated")
+            root_layout.addWidget(calculated_label)
+
         metrics = QGridLayout()
         metrics.setHorizontalSpacing(16)
         metrics.setVerticalSpacing(16)
@@ -543,6 +688,9 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(risk_card)
 
+        self._build_balance_chart(root_layout, result, company.base_currency)
+        self._build_upcoming_payments(root_layout, analysis, result)
+
         audit_note = QLabel(
             "Расчёт выполнен детерминированным ядром. "
             "AI не участвует в вычислении финансовых показателей."
@@ -551,6 +699,109 @@ class MainWindow(QMainWindow):
         audit_note.setWordWrap(True)
 
         root_layout.addWidget(audit_note)
+
+    def _build_balance_chart(
+        self,
+        root_layout: QVBoxLayout,
+        result: ForecastResult,
+        currency: str,
+    ) -> None:
+        heading = QLabel("Динамика остатка")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+
+        card = QFrame()
+        card.setObjectName("chartCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(12, 12, 12, 8)
+        chart = BalanceChart(result, currency)
+        layout.addWidget(chart)
+        root_layout.addWidget(card)
+
+    def _build_upcoming_payments(
+        self,
+        root_layout: QVBoxLayout,
+        analysis: SynchronizationOutcome,
+        result: ForecastResult,
+    ) -> None:
+        forecast_events = (
+            analysis.stress_forecast_events
+            if self._show_stress and analysis.stress_forecast_events
+            else analysis.forecast_events
+        )
+        payments = tuple(
+            sorted(
+                (
+                    event
+                    for event in forecast_events
+                    if not event.is_inflow
+                    and result.start_date <= event.due_date <= result.end_date
+                    and event.amount > Decimal("0.00")
+                ),
+                key=lambda item: (item.due_date, -item.amount),
+            )
+        )[:6]
+        if not payments:
+            return
+
+        company = analysis.snapshot.company
+        assert company is not None
+        titles = self._payment_titles(analysis)
+        heading = QLabel("Ближайшие значимые платежи")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("paymentsCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 18, 24, 18)
+        layout.setSpacing(0)
+        for index, payment in enumerate(payments):
+            row = QFrame()
+            row.setObjectName("paymentRow")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 11, 0, 11)
+            title = QLabel(titles.get(payment.reference, "Запланированный платёж"))
+            title.setObjectName("paymentTitle")
+            title.setWordWrap(True)
+            due_date = QLabel(payment.due_date.strftime("%d.%m.%Y"))
+            due_date.setObjectName("paymentDate")
+            amount = QLabel(format_money(payment.amount, company.base_currency))
+            amount.setObjectName("paymentAmount")
+            row_layout.addWidget(title, 1)
+            row_layout.addWidget(due_date)
+            row_layout.addWidget(amount)
+            layout.addWidget(row)
+            if index != len(payments) - 1:
+                separator = QFrame()
+                separator.setObjectName("paymentSeparator")
+                separator.setFrameShape(QFrame.Shape.HLine)
+                layout.addWidget(separator)
+        root_layout.addWidget(card)
+
+    @staticmethod
+    def _payment_titles(analysis: SynchronizationOutcome) -> dict[str, str]:
+        titles = {
+            event.external_id: event.title
+            for event in analysis.snapshot.events
+        }
+        titles.update(
+            {
+                event.obligation_key: event.title
+                for event in analysis.snapshot.events
+                if event.obligation_key is not None
+            }
+        )
+        for item in analysis.rule_analyses:
+            obligation = item.calculation.obligation
+            if obligation is not None:
+                titles[obligation.obligation_key] = obligation.title
+        for consequence in analysis.consequences:
+            title = {
+                "late_payment_penalty": "Пеня за просрочку",
+                "fine": "Возможный штраф",
+            }.get(consequence.consequence_type, "Фискальное последствие")
+            titles[consequence.consequence_key] = title
+        return titles
 
     def _build_forecast_mode_controls(
         self,
@@ -734,6 +985,257 @@ class MainWindow(QMainWindow):
         layout.addWidget(label)
         root_layout.addWidget(card)
 
+    def _build_history(self, root_layout: QVBoxLayout) -> None:
+        if self._history_provider is None:
+            return
+        heading = QLabel("Последние прогнозы")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        if self._history_error is not None:
+            error = QLabel(self._history_error)
+            error.setObjectName("readinessError")
+            root_layout.addWidget(error)
+            return
+        if not self._history_items:
+            empty = QLabel(
+                "История пока пуста. После первого расчёта прогноз появится здесь."
+            )
+            empty.setObjectName("historyEmpty")
+            empty.setWordWrap(True)
+            root_layout.addWidget(empty)
+            return
+
+        card = QFrame()
+        card.setObjectName("historyPanel")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 10, 20, 10)
+        layout.setSpacing(0)
+        scenario_titles = dict(self._demo_scenarios)
+        for index, item in enumerate(self._history_items):
+            row = QFrame()
+            row.setObjectName("historyRow")
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 12, 0, 12)
+            row_layout.setSpacing(16)
+
+            title = scenario_titles.get(item.scenario_id, item.company_name)
+            version = (
+                f" · версия {item.scenario_version}"
+                if item.scenario_version is not None
+                else ""
+            )
+            identity = QLabel(
+                f"{title}{version}\n"
+                f"Расчёт: {_format_local_datetime(item.created_at)}"
+            )
+            identity.setObjectName("historyIdentity")
+            identity.setWordWrap(True)
+            row_layout.addWidget(identity, 2)
+
+            if item.available:
+                gap = (
+                    item.first_gap_date.strftime("%d.%m.%Y")
+                    if item.first_gap_date is not None
+                    else "не обнаружен"
+                )
+                assert item.required_funding is not None
+                readiness = {
+                    "ready": "данные полные",
+                    "limited": "есть ограничения",
+                    "blocked": "анализ заблокирован",
+                }.get(item.readiness_status, "статус неизвестен")
+                summary = QLabel(
+                    f"Данные: {readiness} · разрыв: {gap}\n"
+                    "Финансирование: "
+                    f"{format_money(item.required_funding, item.currency)}"
+                )
+                summary.setObjectName("historySummary")
+                row_layout.addWidget(summary, 2)
+                button = QPushButton("Открыть")
+                button.setObjectName("historyOpenButton")
+                button.setProperty("analysisRunId", item.analysis_run_id)
+                button.clicked.connect(
+                    lambda checked=False, run_id=item.analysis_run_id: (
+                        self._open_history(run_id)
+                    )
+                )
+                row_layout.addWidget(button)
+            else:
+                unavailable = QLabel(item.error_message or "Запись недоступна.")
+                unavailable.setObjectName("readinessError")
+                unavailable.setWordWrap(True)
+                row_layout.addWidget(unavailable, 2)
+            layout.addWidget(row)
+            if index != len(self._history_items) - 1:
+                separator = QFrame()
+                separator.setObjectName("historySeparator")
+                separator.setFrameShape(QFrame.Shape.HLine)
+                layout.addWidget(separator)
+        root_layout.addWidget(card)
+
+    def _open_history(self, analysis_run_id: str) -> None:
+        if self._history_loader is None:
+            return
+        try:
+            self._history_details = self._history_loader(analysis_run_id)
+            self._history_error = None
+            self._show_stress = False
+        except (LookupError, ValueError):
+            self._history_details = None
+            self._history_error = (
+                "Сохранённый прогноз недоступен: проверка целостности не пройдена."
+            )
+        self._render()
+
+    def _close_history_details(self) -> None:
+        self._history_details = None
+        self._show_stress = False
+        self._render()
+
+    def _build_history_details(
+        self,
+        root_layout: QVBoxLayout,
+        details: ForecastHistoryDetails,
+    ) -> None:
+        header = QFrame()
+        header.setObjectName("historyDetailHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(18, 14, 18, 14)
+        title = QLabel("Сохранённый прогноз")
+        title.setObjectName("statusTitle")
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        close = QPushButton("Вернуться к текущему прогнозу")
+        close.setObjectName("historyCloseButton")
+        close.clicked.connect(self._close_history_details)
+        header_layout.addWidget(close)
+        root_layout.addWidget(header)
+
+        item = details.item
+        meta = QLabel(
+            f"{item.company_name} · дата анализа "
+            f"{item.analysis_date.strftime('%d.%m.%Y')} · "
+            f"сохранено {_format_local_datetime(item.created_at)}"
+        )
+        meta.setObjectName("subtitle")
+        meta.setWordWrap(True)
+        root_layout.addWidget(meta)
+
+        result = details.forecast
+        metrics = QGridLayout()
+        cards = (
+            create_metric_card(
+                "Начальный остаток",
+                format_money(result.opening_balance, item.currency),
+            ),
+            create_metric_card(
+                "Остаток на конец периода",
+                format_money(result.closing_balance, item.currency),
+            ),
+            create_metric_card(
+                "Минимальный баланс",
+                format_money(result.minimum_balance, item.currency),
+                state="danger" if result.minimum_balance < 0 else "safe",
+            ),
+            create_metric_card(
+                "Первый кассовый разрыв",
+                (
+                    result.first_gap_date.strftime("%d.%m.%Y")
+                    if result.first_gap_date is not None
+                    else "Не обнаружен"
+                ),
+                state="danger" if result.first_gap_date is not None else "safe",
+            ),
+        )
+        for column, card in enumerate(cards):
+            metrics.addWidget(card, 0, column)
+            metrics.setColumnStretch(column, 1)
+        root_layout.addLayout(metrics)
+
+        self._build_balance_chart(root_layout, result, item.currency)
+        self._build_historical_payments(root_layout, details)
+        self._build_historical_fiscal_summary(root_layout, details)
+
+        note = QLabel(
+            "Показаны сохранённые результаты и сохранённый набор прогнозных "
+            "событий. Финансовый расчёт повторно не выполнялся."
+        )
+        note.setObjectName("auditNote")
+        note.setWordWrap(True)
+        root_layout.addWidget(note)
+
+    def _build_historical_payments(
+        self,
+        root_layout: QVBoxLayout,
+        details: ForecastHistoryDetails,
+    ) -> None:
+        payments = tuple(
+            sorted(
+                (item for item in details.forecast_events if not item.is_inflow),
+                key=lambda item: (item.due_date, -item.amount),
+            )
+        )[:6]
+        if not payments:
+            return
+        heading = QLabel("Сохранённые ближайшие платежи")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("paymentsCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 14, 24, 14)
+        for payment in payments:
+            label = QLabel(
+                f"{payment.due_date.strftime('%d.%m.%Y')} · "
+                f"{format_money(payment.amount, details.item.currency)}"
+            )
+            label.setObjectName("detailText")
+            layout.addWidget(label)
+        root_layout.addWidget(card)
+
+    def _build_historical_fiscal_summary(
+        self,
+        root_layout: QVBoxLayout,
+        details: ForecastHistoryDetails,
+    ) -> None:
+        if not details.obligations and not details.consequences:
+            return
+        heading = QLabel("Сохранённые налоги и последствия")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("detailsCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 18, 24, 18)
+        for obligation in details.obligations:
+            label = QLabel(
+                f"{obligation.title}: "
+                f"{format_money(obligation.amount, obligation.currency)}; "
+                f"осталось {format_money(obligation.outstanding_amount, obligation.currency)}; "
+                f"срок {obligation.due_date.strftime('%d.%m.%Y')}."
+            )
+            label.setObjectName("detailText")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+        for consequence in details.consequences:
+            title = {
+                "late_payment_penalty": "Пеня",
+                "fine": "Штраф",
+            }.get(consequence.consequence_type, "Фискальное последствие")
+            amount = (
+                format_money(consequence.amount, consequence.currency)
+                if consequence.amount is not None
+                else "сумма не определена"
+            )
+            label = QLabel(
+                f"{title}: {amount}; дата оценки "
+                f"{consequence.assessment_date.strftime('%d.%m.%Y')}."
+            )
+            label.setObjectName("detailText")
+            label.setWordWrap(True)
+            layout.addWidget(label)
+        root_layout.addWidget(card)
+
     def _apply_styles(self) -> None:
         self.setStyleSheet(
             """
@@ -754,6 +1256,11 @@ class MainWindow(QMainWindow):
             QLabel#subtitle {
                 color: #94a3b8;
                 font-size: 16px;
+            }
+
+            QLabel#lastCalculated {
+                color: #64748b;
+                font-size: 13px;
             }
 
             QLabel#demoNotice {
@@ -917,6 +1424,68 @@ class MainWindow(QMainWindow):
                 border-radius: 14px;
             }
 
+            QFrame#chartCard,
+            QFrame#paymentsCard,
+            QFrame#historyPanel,
+            QFrame#historyDetailHeader {
+                background-color: #151c2f;
+                border: 1px solid #26324d;
+                border-radius: 14px;
+            }
+
+            QLabel#paymentTitle {
+                color: #e2e8f0;
+                font-size: 14px;
+            }
+
+            QLabel#paymentDate {
+                color: #94a3b8;
+                font-size: 13px;
+                min-width: 90px;
+            }
+
+            QLabel#paymentAmount {
+                color: #f8fafc;
+                font-size: 14px;
+                font-weight: 600;
+                min-width: 120px;
+            }
+
+            QFrame#paymentSeparator {
+                color: #26324d;
+                max-height: 1px;
+            }
+
+            QLabel#historyIdentity {
+                color: #e2e8f0;
+                font-size: 14px;
+            }
+
+            QLabel#historySummary,
+            QLabel#historyEmpty {
+                color: #94a3b8;
+                font-size: 13px;
+            }
+
+            QPushButton#historyOpenButton,
+            QPushButton#historyCloseButton {
+                color: #dbeafe;
+                background-color: #142033;
+                border: 1px solid #2563eb;
+                border-radius: 8px;
+                padding: 8px 13px;
+            }
+
+            QPushButton#historyOpenButton:hover,
+            QPushButton#historyCloseButton:hover {
+                background-color: #1e3a5f;
+            }
+
+            QFrame#historySeparator {
+                color: #26324d;
+                max-height: 1px;
+            }
+
             QFrame#comparisonCard {
                 background-color: #142033;
                 border: 1px solid #2563eb;
@@ -973,6 +1542,11 @@ def _dataset_label(dataset: DatasetKind) -> str:
         DatasetKind.PAYMENT_CALENDAR: "платёжный календарь",
         DatasetKind.BANK_TRANSACTIONS: "банковские операции",
     }[dataset]
+
+
+def _format_local_datetime(value: datetime) -> str:
+    aware = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return aware.astimezone().strftime("%d.%m.%Y %H:%M")
 
 
 def _localized_issue(code: str, message: str, impact: str) -> tuple[str, str]:

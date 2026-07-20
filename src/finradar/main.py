@@ -63,6 +63,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
         demo_scenarios=tuple((item.scenario_id, item.title) for item in options),
         initial_scenario_id=scenario.scenario_id,
         demo_notice=scenario.fictional_notice,
+        history_provider=controller.history,
+        history_loader=controller.load_history,
     )
     window.show()
 

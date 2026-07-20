@@ -8,6 +8,10 @@ from finradar.application.forecast_facade import (
     ForecastApplicationFacade,
     ForecastRunConfiguration,
 )
+from finradar.application.forecast_history import (
+    ForecastHistoryDetails,
+    ForecastHistoryItem,
+)
 from finradar.application.synchronization_service import SynchronizationOutcome
 from finradar.demo.scenario import DemoScenarioRepository
 from finradar.infrastructure.bank_synchronization_history import (
@@ -47,12 +51,19 @@ class DemoMvpController:
         self._bootstrapper = DemoFiscalRuleBootstrapper(
             SqlAlchemyFiscalRuleRegistry(session_factory)
         )
+        self._analysis_history = SqlAlchemyFiscalAnalysisHistory(session_factory)
 
     def options(self) -> tuple[DemoScenarioOption, ...]:
         return tuple(
             DemoScenarioOption(item.scenario_id, item.title)
             for item in self._repository.list()
         )
+
+    def history(self, *, limit: int = 20) -> tuple[ForecastHistoryItem, ...]:
+        return self._analysis_history.list_recent(limit=limit)
+
+    def load_history(self, analysis_run_id: str) -> ForecastHistoryDetails:
+        return self._analysis_history.load_details(analysis_run_id)
 
     def run(self, scenario_id: str) -> SynchronizationOutcome:
         scenario = self._repository.load(scenario_id)
@@ -78,7 +89,7 @@ class DemoMvpController:
                 self._session_factory
             ),
             bank_recorder=SqlAlchemyBankSynchronizationHistory(self._session_factory),
-            analysis_recorder=SqlAlchemyFiscalAnalysisHistory(self._session_factory),
+            analysis_recorder=self._analysis_history,
             violation_events=scenario.violation_events,
         )
         return facade.run()

@@ -1,6 +1,6 @@
 # FinRadar implementation status
 
-Updated: 2026-07-19
+Updated: 2026-07-20
 
 ## Product direction
 
@@ -156,6 +156,14 @@ calculate amounts.
 - Additive migrations `0004` through `0007`; the prototype database is at
   `0007_integration_sdk` with its existing company and eight cash-flow records
   preserved.
+- The one-click dashboard now includes a dependency-free 30-day daily-balance
+  chart, a bounded list of upcoming outflows, the latest successful run time,
+  and synchronized primary/stress presentation.
+- The desktop UI lists the 20 latest local forecasts after restart. Opening an
+  entry verifies both the analysis and source-snapshot SHA-256 hashes and reads
+  the stored forecast, events, obligations, and consequences without rerunning
+  the financial calculation. Failed integrity checks disable only the affected
+  entry.
 
 ## Verification
 
@@ -166,7 +174,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 99 tests passed, including Ed25519 tamper rejection,
+Latest result: Ruff passed; 114 tests passed, including Ed25519 tamper rejection,
 key rotation and revocation, package expiry, quarantine, replay protection,
 immutable import audit, archive-integrity verification, distribution manifests
 and wheel-boundary verification, the regulatory trust
@@ -206,16 +214,18 @@ and UI smoke tests.
 
 ## Next implementation slice
 
-1. Build and code-sign the independent executables and installer, then execute
-   trust bootstrap and the documented acceptance suite on the supported Windows
-   release VM.
-2. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
-   prototype decision).
-3. Select the first target 1C configuration and implement one read-only local
+1. Complete the fictional signed-package path into a non-active candidate rule
+   and add a bounded internal review/diagnostic view.
+2. Produce an unsigned internal portable build and execute the documented MVP
+   acceptance suite on a clean Windows 11 VM. Code signing remains required
+   before external distribution, not for this fictional-data acceptance build.
+3. Run final first-start, restart/history, offline, frozen-resource, database
+   growth, and timing checks; then refresh the factual project description.
+4. Finalize private-key custody (DPAPI/CNG or an explicitly accepted ACL-only
+   prototype decision) before enabling Monitor outside the local prototype.
+5. Select the first target 1C configuration and implement one read-only local
    transport plus its mapping profile and golden fixture export.
-4. Select the first bank statement format/provider and add its adapter with
+6. Select the first bank statement format/provider and add its adapter with
    golden reconciliation fixtures.
-5. Implement a constrained downloader that revalidates the allowlist after every
+7. Implement a constrained downloader that revalidates the allowlist after every
    redirect, then connect one stable official Georgian source without AI.
-6. Map accepted public packages into the existing candidate-rule lifecycle and
-   add a source-evidence review screen.

@@ -36,7 +36,7 @@ from finradar.domain.fiscal_consequences import (
     LatePaymentPenaltyRule,
     ViolationEvent,
 )
-from finradar.domain.forecast import ForecastResult
+from finradar.domain.forecast import ForecastEvent, ForecastResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +52,8 @@ class SynchronizationOutcome:
     bank_reconciliation: BankReconciliationReport | None = None
     bank_synchronization_run_id: str | None = None
     fiscal_comparison: FiscalComparison | None = None
+    forecast_events: tuple[ForecastEvent, ...] = ()
+    stress_forecast_events: tuple[ForecastEvent, ...] = ()
 
 
 def synchronize_and_forecast(
@@ -143,4 +145,6 @@ def synchronize_and_forecast(
         fiscal_analysis_run_id=fiscal_analysis_run_id,
         bank_reconciliation=bank_reconciliation,
         bank_synchronization_run_id=bank_synchronization_run_id,
+        forecast_events=analytical_result.forecast_events,
+        stress_forecast_events=analytical_result.stress_forecast_events,
     )
