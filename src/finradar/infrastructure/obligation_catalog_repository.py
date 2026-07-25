@@ -53,6 +53,7 @@ class _EntryData(_ContractModel):
     group_id: str | None = None
     parent_instrument_id: str | None = None
     calculation_rule_ids: tuple[str, ...] = ()
+    rate_rule_ids: tuple[str, ...] = ()
     note: str = ""
 
 

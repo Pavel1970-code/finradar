@@ -111,3 +111,7 @@ double-counting rules are documented in
 The verified Georgian payroll rule snapshot, canonical local payroll dataset,
 and current limitations are documented in
 [GEORGIA_PAYROLL_RULES.md](docs/regulatory/GEORGIA_PAYROLL_RULES.md).
+The separately versioned Georgian tax-rate baseline, its source provisions,
+required fact IDs, and deliberately incomplete classification schedules are
+documented in
+[GEORGIA_TAX_RATES.md](docs/regulatory/GEORGIA_TAX_RATES.md).

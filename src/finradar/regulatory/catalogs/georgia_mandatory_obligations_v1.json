@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_id": "georgia-mandatory-obligations",
   "catalog_version": 1,
-  "payload_sha256": "240fc30e4ef0cf6f39096887775c7847834bdd318d891c5d078b8da4bb9509bd",
+  "payload_sha256": "b64bda308a3ff0af2584ab1ed428624816b350cf967d912b0bace2f3dd49e37f",
   "payload": {
     "jurisdiction": "GE",
     "verified_on": "2026-07-25",
@@ -137,6 +137,10 @@
         "calculation_rule_ids": [
           "ge-payroll-standard"
         ],
+        "rate_rule_ids": [
+          "ge-income-standard",
+          "ge-income-special-five-percent"
+        ],
         "note": "Частичная реализация относится только к стандартному подоходному налогу с зарплаты."
       },
       {
@@ -157,6 +161,9 @@
         ],
         "source_ids": [
           "ge-tax-code-245"
+        ],
+        "rate_rule_ids": [
+          "ge-profit-rates"
         ]
       },
       {
@@ -182,6 +189,9 @@
         "calculation_rule_ids": [
           "ge-vat-standard"
         ],
+        "rate_rule_ids": [
+          "ge-vat-standard"
+        ],
         "note": "В Core реализован только узкий сценарий стандартных внутренних операций."
       },
       {
@@ -202,6 +212,9 @@
         ],
         "source_ids": [
           "ge-tax-code-245"
+        ],
+        "rate_rule_ids": [
+          "ge-excise-classification-schedule"
         ]
       },
       {
@@ -223,6 +236,9 @@
         ],
         "source_ids": [
           "ge-tax-code-245"
+        ],
+        "rate_rule_ids": [
+          "ge-import-rate-schedule"
         ]
       },
       {
@@ -244,6 +260,11 @@
         ],
         "source_ids": [
           "ge-tax-code-245"
+        ],
+        "rate_rule_ids": [
+          "ge-property-company",
+          "ge-property-individual",
+          "ge-property-land"
         ]
       },
       {
@@ -325,6 +346,9 @@
         "parent_instrument_id": "ge-tax-income",
         "calculation_rule_ids": [
           "ge-payroll-standard"
+        ],
+        "rate_rule_ids": [
+          "ge-withholding-employment"
         ],
         "note": "Это часть валовой зарплаты, удержанная у работника, а не дополнительный расход работодателя сверх валовой зарплаты."
       },
@@ -449,7 +473,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-withholding-dividend"
+        ]
       },
       {
         "instrument_id": "ge-withholding-interest-income-tax",
@@ -472,7 +499,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-withholding-interest"
+        ]
       },
       {
         "instrument_id": "ge-withholding-nonresident-payment",
@@ -494,7 +524,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-withholding-nonresident"
+        ]
       },
       {
         "instrument_id": "ge-withholding-other-tax-agent-payment",
@@ -538,7 +571,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-income-micro-business"
+        ]
       },
       {
         "instrument_id": "ge-regime-small-business",
@@ -559,7 +595,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-income-small-business"
+        ]
       },
       {
         "instrument_id": "ge-regime-fixed-taxpayer",
@@ -580,7 +619,10 @@
         "source_ids": [
           "ge-tax-code-245"
         ],
-        "parent_instrument_id": "ge-tax-income"
+        "parent_instrument_id": "ge-tax-income",
+        "rate_rule_ids": [
+          "ge-income-fixed-taxpayer"
+        ]
       },
       {
         "instrument_id": "ge-regime-vat-registration",

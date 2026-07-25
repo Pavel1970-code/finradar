@@ -223,6 +223,15 @@ calculate amounts.
   national identifier is stored.
 - Georgian aggregate payroll rows without the canonical dataset still produce
   a data-readiness limitation explaining which components are unavailable.
+- A separate SHA-256-protected Georgian tax-rate catalog now contains 16
+  versioned rules linked to the mandatory-obligation catalog. It records the
+  verified current scalar rates, tax bases, applicability conditions, official
+  provisions, and operational validity period.
+- Rate rules carry stable required-fact IDs. The domain model can report exactly
+  which fact IDs are missing before a rate may be selected.
+- Excise, import commodity lists, land, and fixed-tax classifications are marked
+  `reference_only`; the catalog cannot present them as deterministic until the
+  complete official schedules and applicable subordinate acts are encoded.
 
 ## Verification
 
@@ -233,7 +242,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest local result: Ruff passed; 142 tests passed. The suite includes Ed25519
+Latest local result: Ruff passed; 150 tests passed. The suite includes Ed25519
 tamper rejection, key rotation and revocation, package expiry, quarantine,
 replay protection, immutable import audit, archive-integrity verification,
 distribution manifests and wheel-boundary verification, the regulatory trust
@@ -265,6 +274,12 @@ and UI smoke tests.
 - The Georgian VAT normative values are manually encoded from one official
   consolidated Tax Code PDF. Automatic retrieval, amendment detection, legal
   review, and activation of updates are not implemented.
+- The new Georgian rate catalog is a verified normative baseline, not yet a
+  general executable tax engine. Outside the narrow VAT and standard payroll
+  modules, its numbers are not automatically applied to accounting data.
+- Historical rate periods before 25 July 2026 are not reconstructed. The first
+  catalog version guarantees current applicability from its verification date
+  and must not be used to back-calculate earlier periods.
 - Weekend deadline rolling is deterministic. Public holidays are applied only
   when supplied explicitly with the rule; a maintained Georgian holiday
   calendar is not implemented.
@@ -305,3 +320,9 @@ and UI smoke tests.
 9. Add a reviewed Georgian business-day calendar and define the next VAT
    calculation scope: corrections and import/reverse-charge document mapping
    before mixed-use deductions.
+10. Build a local applicability resolver that maps canonical accounting fact
+    IDs to rate-rule requirements, produces a missing-data report, and passes
+    only an unambiguous selected rule into a deterministic calculator.
+11. Import the complete official excise/import classification tables and the
+    first selected municipality's property-tax acts as independently versioned
+    schedules before enabling those calculations.

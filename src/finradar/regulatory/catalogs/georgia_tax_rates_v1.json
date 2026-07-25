@@ -1,0 +1,853 @@
+{
+  "schema_version": 1,
+  "catalog_id": "georgia-tax-rates",
+  "catalog_version": 1,
+  "payload_sha256": "b38b442935c58279fdb0559719e5704ea44dbfe724b42a0388ab5aa3cd6b5d65",
+  "payload": {
+    "jurisdiction": "GE",
+    "verified_on": "2026-07-25",
+    "sources": [
+      {
+        "source_id": "ge-tax-code-245",
+        "title": "Налоговый кодекс Грузии, консолидированная публикация 245",
+        "url": "https://matsne.gov.ge/ka/document/download/1043717/245/ge/pdf",
+        "provisions": [
+          "статьи 81, 86, 90, 95³, 98, 130, 131, 134, 166, 188, 188¹, 197, 202 и 204"
+        ],
+        "note": "Официальный грузинский текст, проверенный 25 июля 2026 года. Дата valid_from означает начало гарантированной применимости этой версии в FinRadar, а не дату первоначального принятия нормы."
+      }
+    ],
+    "rules": [
+      {
+        "rule_id": "ge-income-standard",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-income",
+        "title_ru": "Стандартная ставка подоходного налога",
+        "valid_from": "2026-07-25",
+        "coverage": "deterministic",
+        "taxable_base_ru": "Облагаемый доход физического лица",
+        "calculation_method_ru": "Облагаемый доход умножается на ставку.",
+        "applicability_ru": "Физическое лицо, если Кодексом не предусмотрена специальная ставка, освобождение или иной режим.",
+        "required_fact_ids": [
+          "taxable_income_amount",
+          "income_type",
+          "recipient_tax_status",
+          "applicable_reliefs"
+        ],
+        "required_facts": [
+          "сумма облагаемого дохода",
+          "вид дохода",
+          "статус и налоговый режим получателя",
+          "применимые льготы и освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "standard",
+            "label_ru": "Стандартная ставка",
+            "value_kind": "percentage",
+            "value": "0.20"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 81(1)"
+        ],
+        "note": "Эта ставка уже используется отдельным модулем проверки стандартной зарплаты."
+      },
+      {
+        "rule_id": "ge-income-special-five-percent",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-income",
+        "title_ru": "Специальные ставки подоходного налога 5%",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Доход или прирост дохода, определённый соответствующей частью статьи 81",
+        "calculation_method_ru": "Подходящая по фактам база умножается на 5%.",
+        "applicability_ru": "Только перечисленные Кодексом виды дохода при выполнении их условий.",
+        "required_fact_ids": [
+          "income_or_asset_type",
+          "lease_purpose",
+          "deduction_election",
+          "proceeds_and_cost_basis",
+          "gambling_participant_status"
+        ],
+        "required_facts": [
+          "вид дохода или отчуждённого актива",
+          "назначение аренды",
+          "применялись ли вычеты",
+          "доход от реализации и стоимость приобретения",
+          "статус организатора и участника азартной игры"
+        ],
+        "components": [
+          {
+            "component_id": "residential-rent-no-deductions",
+            "label_ru": "Доход физического лица от аренды жилья для проживания без вычетов",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "residential_rent_without_deductions",
+            "condition_ru": "Жильё сдано организации, юридическому или физическому лицу для проживания, а арендодатель не применяет вычеты."
+          },
+          {
+            "component_id": "residential-or-vehicle-gain",
+            "label_ru": "Прирост дохода от продажи жилья с землёй или автомобиля",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "residential_property_or_vehicle_gain",
+            "condition_ru": "Объект и прирост соответствуют статье 81(3), с учётом освобождений статьи 82."
+          },
+          {
+            "component_id": "foreign-participant-online-gambling",
+            "label_ru": "Доход от участия иностранных граждан в системно-электронных азартных играх или тотализаторе",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "foreign_participant_online_gambling",
+            "condition_ru": "Доход организатора получен от участия иностранных граждан."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 81(2), 81(3), 81(3²)–(5)"
+        ],
+        "note": "Наличие ставки ещё не доказывает применимость: нужны данные об операции и проверка освобождений."
+      },
+      {
+        "rule_id": "ge-income-micro-business",
+        "rule_version": 1,
+        "instrument_id": "ge-regime-micro-business",
+        "title_ru": "Освобождение микробизнеса от подоходного налога",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Доход лица со статусом микробизнеса",
+        "calculation_method_ru": "Подоходный налог не начисляется при действующем статусе и соблюдении условий режима.",
+        "applicability_ru": "Физическое лицо с действующим статусом микробизнеса.",
+        "required_fact_ids": [
+          "micro_business_status",
+          "micro_business_status_period",
+          "activity_type",
+          "annual_income",
+          "vat_registration_status",
+          "inventory_balance"
+        ],
+        "required_facts": [
+          "подтверждённый статус микробизнеса",
+          "дата действия статуса",
+          "вид деятельности",
+          "годовой доход",
+          "регистрация плательщиком НДС",
+          "остаток товарно-материальных запасов"
+        ],
+        "components": [
+          {
+            "component_id": "income-tax-exemption",
+            "label_ru": "Освобождение от подоходного налога",
+            "value_kind": "exemption",
+            "condition_code": "valid_micro_business_status",
+            "condition_ru": "Статус действует и основания для его отмены не возникли."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 84–87, особенно статья 86"
+        ],
+        "note": "Нулевая сумма следует из освобождения, а не из универсальной ставки 0%."
+      },
+      {
+        "rule_id": "ge-income-small-business",
+        "rule_version": 1,
+        "instrument_id": "ge-regime-small-business",
+        "title_ru": "Ставки подоходного налога для малого бизнеса",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Облагаемый доход малого бизнеса из источников в Грузии с исключениями статьи 90(3)",
+        "calculation_method_ru": "До превышения применимого годового порога применяется 1%; с начала месяца превышения до конца календарного года — 3%.",
+        "applicability_ru": "Предприниматель-физическое лицо с действующим статусом малого бизнеса.",
+        "required_fact_ids": [
+          "small_business_status",
+          "activity_type",
+          "current_month_taxable_income",
+          "year_to_date_income_before_month",
+          "wine_or_agrotourism_status",
+          "special_regime_excluded_income"
+        ],
+        "required_facts": [
+          "подтверждённый статус малого бизнеса",
+          "вид деятельности",
+          "облагаемый доход текущего месяца",
+          "накопленный годовой доход до текущего месяца",
+          "признак винного туризма или агротуризма",
+          "доходы, исключённые из специального режима"
+        ],
+        "components": [
+          {
+            "component_id": "standard-small-business",
+            "label_ru": "Основная ставка малого бизнеса",
+            "value_kind": "percentage",
+            "value": "0.01",
+            "condition_code": "annual_threshold_not_exceeded",
+            "condition_ru": "Применимый годовой порог ещё не превышен."
+          },
+          {
+            "component_id": "threshold-exceeded",
+            "label_ru": "Ставка после превышения годового порога",
+            "value_kind": "percentage",
+            "value": "0.03",
+            "condition_code": "annual_threshold_exceeded",
+            "condition_ru": "Обычный порог 500 000 GEL; для субъекта винного туризма или агротуризма — 700 000 GEL. Ставка действует с начала месяца превышения до конца года.",
+            "note": "Порог является условием выбора ставки и не является налоговой базой."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 88–90"
+        ]
+      },
+      {
+        "rule_id": "ge-income-fixed-taxpayer",
+        "rule_version": 1,
+        "instrument_id": "ge-regime-fixed-taxpayer",
+        "title_ru": "Рамочные ставки фиксированного налога",
+        "valid_from": "2026-07-25",
+        "coverage": "reference_only",
+        "taxable_base_ru": "Объект налогообложения или доход от установленного правительством вида деятельности",
+        "calculation_method_ru": "Конкретная ставка выбирается по виду деятельности и, при необходимости, муниципалитету из отдельного правительственного акта.",
+        "applicability_ru": "Лицо без статуса плательщика НДС, ведущее деятельность, признанную облагаемой фиксированным налогом.",
+        "required_fact_ids": [
+          "fixed_taxpayer_status",
+          "activity_type",
+          "activity_location",
+          "taxable_object_count",
+          "taxable_activity_income",
+          "government_activity_classifier"
+        ],
+        "required_facts": [
+          "статус фиксированного налогоплательщика",
+          "вид деятельности",
+          "место деятельности и муниципалитет",
+          "количество объектов",
+          "доход от облагаемой деятельности",
+          "действующий правительственный классификатор"
+        ],
+        "components": [
+          {
+            "component_id": "per-object-framework",
+            "label_ru": "Допустимый законом диапазон на объект",
+            "value_kind": "amount_range",
+            "minimum_value": "1",
+            "maximum_value": "2000",
+            "currency": "GEL",
+            "unit": "на объект",
+            "condition_code": "government_selected_per_object_rate",
+            "condition_ru": "Применяется конкретная ставка, установленная правительством для деятельности и муниципалитета."
+          },
+          {
+            "component_id": "income-percentage-framework",
+            "label_ru": "Ставка от дохода для установленных видов деятельности",
+            "value_kind": "percentage",
+            "value": "0.03",
+            "condition_code": "government_selected_income_rate",
+            "condition_ru": "Правительство определило соответствующие условия и вид деятельности."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 95¹–95³"
+        ],
+        "note": "Кодекс задаёт рамку, но для детерминированного расчёта нужен отдельный действующий акт правительства."
+      },
+      {
+        "rule_id": "ge-profit-rates",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-profit",
+        "title_ru": "Ставки налога на прибыль",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Объект налогообложения, определённый статьёй 97 для соответствующего плательщика и операции",
+        "calculation_method_ru": "Определяется категория плательщика и операции, затем база умножается на соответствующую ставку.",
+        "applicability_ru": "Организация или другое лицо, признаваемое плательщиком налога на прибыль.",
+        "required_fact_ids": [
+          "entity_tax_status",
+          "taxable_operation_type",
+          "distributed_and_deemed_distribution_amounts",
+          "legacy_oil_gas_contract_status",
+          "gambling_activity_and_participant_status",
+          "applicable_reliefs"
+        ],
+        "required_facts": [
+          "вид и налоговый статус организации",
+          "тип облагаемой операции",
+          "сумма распределённой прибыли и приравненных операций",
+          "наличие нефтегазового договора до 1 января 1998 года",
+          "вид азартной деятельности и гражданство участников",
+          "льготы и освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "standard",
+            "label_ru": "Стандартная ставка",
+            "value_kind": "percentage",
+            "value": "0.15",
+            "condition_code": "standard_profit_taxpayer"
+          },
+          {
+            "component_id": "legacy-oil-gas-contract",
+            "label_ru": "Нефтегазовые операции по существующему договору до 1 января 1998 года",
+            "value_kind": "percentage",
+            "value": "0.10",
+            "condition_code": "legacy_oil_gas_contract"
+          },
+          {
+            "component_id": "financial-sector",
+            "label_ru": "Банк, кредитный союз, микрофинансовая организация или субъект кредитования",
+            "value_kind": "percentage",
+            "value": "0.20",
+            "condition_code": "specified_financial_entity"
+          },
+          {
+            "component_id": "foreign-participant-online-gambling",
+            "label_ru": "Прибыль организатора от участия иностранных граждан в системно-электронных азартных играх или тотализаторе",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "foreign_participant_online_gambling"
+          },
+          {
+            "component_id": "other-slot-or-online-gambling",
+            "label_ru": "Прибыль зала игровых автоматов или иная системно-электронная азартная деятельность",
+            "value_kind": "percentage",
+            "value": "0.20",
+            "condition_code": "other_slot_or_online_gambling"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 97–98"
+        ],
+        "note": "Ставка сама по себе недостаточна: стандартный режим налога на прибыль в Грузии требует корректно определить облагаемую распределённую сумму."
+      },
+      {
+        "rule_id": "ge-vat-standard",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-vat",
+        "title_ru": "Стандартная ставка НДС",
+        "valid_from": "2026-07-25",
+        "coverage": "deterministic",
+        "taxable_base_ru": "Налогооблагаемая сумма операции или импорта после определения места, момента и базы",
+        "calculation_method_ru": "Налоговая база умножается на 18%; к уплате по периоду учитываются разрешённые вычеты входного НДС.",
+        "applicability_ru": "Облагаемая НДС операция, импорт или обратное начисление, если не применяется освобождение.",
+        "required_fact_ids": [
+          "vat_registration_status",
+          "transaction_type_place_and_date",
+          "vat_taxable_base",
+          "output_vat",
+          "deductible_input_vat",
+          "vat_reliefs_and_special_regimes"
+        ],
+        "required_facts": [
+          "статус регистрации НДС",
+          "вид, место и дата операции",
+          "налоговая база",
+          "исходящий НДС",
+          "входной НДС и право на вычет",
+          "освобождения и специальные режимы"
+        ],
+        "components": [
+          {
+            "component_id": "standard",
+            "label_ru": "Стандартная ставка НДС",
+            "value_kind": "percentage",
+            "value": "0.18"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 166"
+        ],
+        "note": "Текущий расчётный модуль FinRadar покрывает только узкий сценарий стандартных внутренних операций."
+      },
+      {
+        "rule_id": "ge-excise-classification-schedule",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-excise",
+        "title_ru": "Классификационные таблицы ставок акциза",
+        "valid_from": "2026-07-25",
+        "coverage": "reference_only",
+        "taxable_base_ru": "Количество, стоимость или иной показатель подакцизного товара либо услуги",
+        "calculation_method_ru": "Товар или услуга классифицируется по коду, единице измерения и условиям; затем применяется строка таблицы Кодекса.",
+        "applicability_ru": "Производство, импорт, поставка или оказание услуги, являющиеся объектом акциза.",
+        "required_fact_ids": [
+          "commodity_code",
+          "excise_object_type",
+          "quantity_and_unit",
+          "excise_measurement_base",
+          "origin_and_operation_type",
+          "excise_reliefs_and_credit"
+        ],
+        "required_facts": [
+          "код СЭС ТН ВЭД",
+          "вид товара или услуги",
+          "количество и единица измерения",
+          "стоимость, объём, содержание алкоголя или иная база",
+          "происхождение и вид операции",
+          "льготы и право на зачёт"
+        ],
+        "components": [
+          {
+            "component_id": "articles-188-and-188-1",
+            "label_ru": "Таблицы ставок по товарам, включая алкоголь",
+            "value_kind": "classification_schedule",
+            "condition_code": "excise_classifier_match",
+            "condition_ru": "Точный код, единица измерения и описание совпадают с действующей строкой таблицы.",
+            "note": "Ставки неоднородны и включают фиксированные суммы, проценты и составные формулы; таблица ещё не перенесена построчно."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 188 и 188¹"
+        ],
+        "note": "Единой ставки акциза не существует. До переноса полной таблицы автоматический расчёт запрещён."
+      },
+      {
+        "rule_id": "ge-import-rate-schedule",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-import",
+        "title_ru": "Ставки налога на импорт",
+        "valid_from": "2026-07-25",
+        "coverage": "reference_only",
+        "taxable_base_ru": "Таможенная стоимость либо специальная физическая база товара",
+        "calculation_method_ru": "По товарному коду выбирается ставка 12%, 5% или специальная формула; отдельно учитываются временный ввоз, автомобиль и освобождения.",
+        "applicability_ru": "Товар перемещается через таможенную границу Грузии и не освобождён от налога на импорт.",
+        "required_fact_ids": [
+          "commodity_code",
+          "commodity_description_and_quantity",
+          "customs_value",
+          "origin_and_trade_regime",
+          "customs_procedure",
+          "alcohol_volume_and_strength",
+          "vehicle_engine_and_age",
+          "import_reliefs"
+        ],
+        "required_facts": [
+          "полный товарный код",
+          "описание и количество товара",
+          "таможенная стоимость",
+          "происхождение товара и торговый режим",
+          "таможенная процедура",
+          "для алкоголя — объём и содержание алкоголя",
+          "для автомобиля — объём двигателя и срок эксплуатации",
+          "льготы и освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "listed-goods-twelve-percent",
+            "label_ru": "Товары из перечня статьи 197(1)",
+            "value_kind": "percentage",
+            "value": "0.12",
+            "condition_code": "hs_code_in_article_197_1",
+            "condition_ru": "Код и описание товара присутствуют в полном перечне статьи 197(1)."
+          },
+          {
+            "component_id": "listed-goods-five-percent",
+            "label_ru": "Товары из перечня статьи 197(2)",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "hs_code_in_article_197_2",
+            "condition_ru": "Код и описание товара присутствуют в полном перечне статьи 197(2)."
+          },
+          {
+            "component_id": "alcohol-special-schedule",
+            "label_ru": "Специальные ставки для перечисленной алкогольной продукции",
+            "value_kind": "classification_schedule",
+            "condition_code": "hs_code_in_article_197_3",
+            "condition_ru": "Товар присутствует в таблице статьи 197(3).",
+            "note": "Ставки выражены в euro/lit либо euro/%vol/HL и должны переноситься вместе с кодами и единицами."
+          },
+          {
+            "component_id": "temporary-admission",
+            "label_ru": "Временный ввоз за каждый полный или неполный календарный месяц",
+            "value_kind": "percentage",
+            "value": "0.03",
+            "condition_code": "temporary_admission",
+            "condition_ru": "3% от суммы налога на импорт, которая была бы уплачена при обычном импорте на дату регистрации декларации; общий итог без пени не превышает эту исходную сумму."
+          },
+          {
+            "component_id": "passenger-car-formula",
+            "label_ru": "Легковой автомобиль товарной позиции 8703",
+            "value_kind": "formula",
+            "condition_code": "hs_code_8703",
+            "condition_ru": "Транспортное средство относится к товарной позиции 8703.",
+            "note": "0,05 GEL за каждый кубический сантиметр объёма двигателя плюс 5% полученной суммы за каждый год эксплуатации."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 195–199, особенно статья 197"
+        ],
+        "note": "Перечни товарных кодов ещё не перенесены построчно, поэтому ставки 12% и 5% нельзя выбирать автоматически."
+      },
+      {
+        "rule_id": "ge-property-company",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-property",
+        "title_ru": "Налог на имущество предприятия или организации",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Среднегодовая остаточная балансовая стоимость облагаемого имущества с предусмотренными корректировками",
+        "calculation_method_ru": "К скорректированной базе применяется установленная ставка, не превышающая соответствующий предел.",
+        "applicability_ru": "Предприятие или организация владеет либо использует имущество, признаваемое объектом налога.",
+        "required_fact_ids": [
+          "municipality_property_rule",
+          "property_type",
+          "opening_and_closing_book_value",
+          "real_property_acquisition_date",
+          "revaluation_and_audit_status",
+          "leasing_status",
+          "property_reliefs"
+        ],
+        "required_facts": [
+          "муниципалитет и действующий местный акт",
+          "вид имущества",
+          "остаточная стоимость на начало и конец года",
+          "дата приобретения недвижимости",
+          "наличие переоценки и аудированной отчётности",
+          "признак лизинговой компании и лизингового имущества",
+          "льготы"
+        ],
+        "components": [
+          {
+            "component_id": "general-maximum",
+            "label_ru": "Предельная годовая ставка",
+            "value_kind": "amount_range",
+            "maximum_value": "0.01",
+            "unit": "доля налоговой базы",
+            "condition_code": "company_general_property",
+            "condition_ru": "Имущество предприятия или организации, включая обычное переданное в лизинг имущество."
+          },
+          {
+            "component_id": "leasing-company-maximum",
+            "label_ru": "Предельная ставка для имущества, переданного лизинговой компанией",
+            "value_kind": "amount_range",
+            "maximum_value": "0.006",
+            "unit": "доля первоначальной балансовой стоимости",
+            "condition_code": "leasing_company_property",
+            "condition_ru": "Облагаемое имущество впервые передано в лизинг лизинговой компанией."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 202(1)–(3¹)"
+        ],
+        "note": "Кодекс задаёт верхние пределы; точная сумма требует применимой ставки и корректировок стоимости."
+      },
+      {
+        "rule_id": "ge-property-individual",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-property",
+        "title_ru": "Налог на имущество физического лица",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Рыночная стоимость облагаемого имущества на конец налогового периода",
+        "calculation_method_ru": "По семейному доходу выбирается диапазон, а точная ставка определяется применимым местным актом.",
+        "applicability_ru": "Физическое лицо имеет облагаемое имущество и не подпадает под освобождение.",
+        "required_fact_ids": [
+          "family_annual_income",
+          "tax_family_composition",
+          "property_market_value",
+          "property_type",
+          "municipality_property_rule",
+          "property_reliefs"
+        ],
+        "required_facts": [
+          "семейный доход за налоговый год",
+          "состав семьи для налоговых целей",
+          "рыночная стоимость имущества",
+          "вид имущества",
+          "муниципалитет и действующий местный акт",
+          "льготы и освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "family-income-under-100000",
+            "label_ru": "Семейный доход менее 100 000 GEL",
+            "value_kind": "amount_range",
+            "minimum_value": "0.0005",
+            "maximum_value": "0.002",
+            "unit": "доля рыночной стоимости",
+            "condition_code": "family_income_below_100000"
+          },
+          {
+            "component_id": "family-income-at-least-100000",
+            "label_ru": "Семейный доход 100 000 GEL и более",
+            "value_kind": "amount_range",
+            "minimum_value": "0.008",
+            "maximum_value": "0.01",
+            "unit": "доля рыночной стоимости",
+            "condition_code": "family_income_at_least_100000"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 202(5)–(7)"
+        ]
+      },
+      {
+        "rule_id": "ge-property-land",
+        "rule_version": 1,
+        "instrument_id": "ge-tax-property",
+        "title_ru": "Ставки налога на землю",
+        "valid_from": "2026-07-25",
+        "coverage": "reference_only",
+        "taxable_base_ru": "Площадь и категория земельного участка",
+        "calculation_method_ru": "Базовая ставка выбирается по административной единице и категории земли, после чего применяется решение муниципалитета в установленных Кодексом пределах.",
+        "applicability_ru": "Лицо владеет или пользуется земельным участком, признаваемым объектом налога на 1 апреля.",
+        "required_fact_ids": [
+          "cadastral_id",
+          "land_area",
+          "land_category_and_use",
+          "administrative_unit",
+          "municipality_land_rule",
+          "ownership_or_use_date",
+          "land_reliefs"
+        ],
+        "required_facts": [
+          "кадастровый идентификатор",
+          "площадь",
+          "категория и назначение земли",
+          "административная единица",
+          "действующий муниципальный акт",
+          "дата владения или пользования",
+          "льготы"
+        ],
+        "components": [
+          {
+            "component_id": "article-204-and-local-act",
+            "label_ru": "Территориальная таблица и муниципальная ставка",
+            "value_kind": "classification_schedule",
+            "condition_code": "land_category_and_municipality_match",
+            "condition_ru": "Категория земли и административная единица сопоставлены с таблицей Кодекса и местным актом.",
+            "note": "Ставки выражены в GEL за гектар или квадратный метр и различаются по территории и категории; полный классификатор ещё не перенесён."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 203–204"
+        ],
+        "note": "Без муниципального нормативного акта точная ставка может быть неизвестна даже при наличии кадастровых данных."
+      },
+      {
+        "rule_id": "ge-withholding-employment",
+        "rule_version": 1,
+        "instrument_id": "ge-withholding-employment-income-tax",
+        "title_ru": "Удержание подоходного налога с зарплаты",
+        "valid_from": "2026-07-25",
+        "coverage": "deterministic",
+        "taxable_base_ru": "Облагаемый доход работника в виде зарплаты и учитываемых неденежных выгод",
+        "calculation_method_ru": "Налоговая база по зарплате умножается на стандартную ставку подоходного налога.",
+        "applicability_ru": "Работодатель является налоговым агентом, а к доходу работника не применяется подтверждённое исключение.",
+        "required_fact_ids": [
+          "gross_cash_salary",
+          "taxable_non_cash_benefits",
+          "employment_tax_base",
+          "employee_tax_status",
+          "employment_reliefs",
+          "payment_date_and_form"
+        ],
+        "required_facts": [
+          "валовая денежная зарплата",
+          "налогооблагаемые неденежные выгоды",
+          "налоговая база",
+          "налоговый статус работника",
+          "льготы и исключения",
+          "дата и форма выплаты"
+        ],
+        "components": [
+          {
+            "component_id": "standard-employment",
+            "label_ru": "Стандартное удержание с зарплаты",
+            "value_kind": "percentage",
+            "value": "0.20"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 81(1), 101 и 154"
+        ],
+        "note": "Связано с модулем ge-payroll-standard; пенсионные взносы являются отдельными компонентами."
+      },
+      {
+        "rule_id": "ge-withholding-dividend",
+        "rule_version": 1,
+        "instrument_id": "ge-withholding-dividend-income-tax",
+        "title_ru": "Удержание налога с дивидендов",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Сумма выплачиваемого дивиденда",
+        "calculation_method_ru": "Сумма дивиденда умножается на 5%, если не применяется установленное исключение.",
+        "applicability_ru": "Резидентное предприятие выплачивает дивиденд физическому лицу, некоммерческому юридическому лицу или нерезидентному предприятию.",
+        "required_fact_ids": [
+          "dividend_amount_and_date",
+          "payer_and_recipient_status",
+          "distributed_profit_period",
+          "dividend_exemption"
+        ],
+        "required_facts": [
+          "сумма и дата дивиденда",
+          "статус плательщика и получателя",
+          "период прибыли, из которой выплачивается дивиденд",
+          "наличие освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "standard-dividend",
+            "label_ru": "Стандартное удержание",
+            "value_kind": "percentage",
+            "value": "0.05"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 130"
+        ],
+        "note": "Статья содержит несколько исключений, включая выплаты между определёнными предприятиями и отдельные отраслевые случаи."
+      },
+      {
+        "rule_id": "ge-withholding-interest",
+        "rule_version": 1,
+        "instrument_id": "ge-withholding-interest-income-tax",
+        "title_ru": "Удержание налога с процентов",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Сумма выплачиваемых процентов",
+        "calculation_method_ru": "Сумма процентов умножается на 5%, если не применяется установленное исключение.",
+        "applicability_ru": "Резидент или постоянное учреждение нерезидента выплачивает проценты физическому лицу либо нерезиденту без постоянного учреждения в Грузии.",
+        "required_fact_ids": [
+          "interest_amount_and_date",
+          "payer_and_recipient_status",
+          "financial_instrument_type",
+          "interest_exemption"
+        ],
+        "required_facts": [
+          "сумма и дата процентов",
+          "статус плательщика и получателя",
+          "вид финансового инструмента",
+          "наличие освобождения"
+        ],
+        "components": [
+          {
+            "component_id": "standard-interest",
+            "label_ru": "Стандартное удержание",
+            "value_kind": "percentage",
+            "value": "0.05"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 131"
+        ],
+        "note": "Проценты лицензированных финансовых учреждений и другие перечисленные случаи могут не облагаться у источника."
+      },
+      {
+        "rule_id": "ge-withholding-nonresident",
+        "rule_version": 1,
+        "instrument_id": "ge-withholding-nonresident-payment",
+        "title_ru": "Удержание налога с доходов нерезидента",
+        "valid_from": "2026-07-25",
+        "coverage": "conditional",
+        "taxable_base_ru": "Выплата из источника в Грузии нерезиденту без относимого к ней постоянного учреждения в Грузии",
+        "calculation_method_ru": "Категория выплаты и статус юрисдикции получателя определяют ставку; удержание производится без вычетов.",
+        "applicability_ru": "Получатель является нерезидентом, а доход не относится к его постоянному учреждению в Грузии.",
+        "required_fact_ids": [
+          "nonresident_payment_amount_and_date",
+          "nonresident_income_type",
+          "recipient_country_and_tax_status",
+          "georgian_permanent_establishment_status",
+          "income_attribution_to_permanent_establishment",
+          "tax_treaty",
+          "preferential_tax_jurisdiction_status"
+        ],
+        "required_facts": [
+          "сумма и дата выплаты",
+          "тип дохода",
+          "страна и налоговый статус получателя",
+          "наличие постоянного учреждения в Грузии",
+          "связь дохода с постоянным учреждением",
+          "применимый международный договор",
+          "признак льготной юрисдикции"
+        ],
+        "components": [
+          {
+            "component_id": "royalty",
+            "label_ru": "Роялти",
+            "value_kind": "percentage",
+            "value": "0.05",
+            "condition_code": "nonresident_royalty"
+          },
+          {
+            "component_id": "international-communications-or-transport",
+            "label_ru": "Международные телекоммуникационные или транспортные услуги",
+            "value_kind": "percentage",
+            "value": "0.10",
+            "condition_code": "international_communications_or_transport"
+          },
+          {
+            "component_id": "oil-gas-subcontractor",
+            "label_ru": "Доход нерезидентного субподрядчика по нефтегазовым операциям",
+            "value_kind": "percentage",
+            "value": "0.04",
+            "condition_code": "oil_gas_nonresident_subcontractor"
+          },
+          {
+            "component_id": "other-georgian-source",
+            "label_ru": "Иная выплата из источника в Грузии",
+            "value_kind": "percentage",
+            "value": "0.10",
+            "condition_code": "other_georgian_source_income"
+          },
+          {
+            "component_id": "preferential-tax-jurisdiction",
+            "label_ru": "Отдельные выплаты лицу из юрисдикции с льготным налогообложением",
+            "value_kind": "percentage",
+            "value": "0.15",
+            "condition_code": "preferential_tax_jurisdiction",
+            "condition_ru": "Применяется к процентам, роялти и иным выплатам, перечисленным в статье 134(1¹)."
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 134"
+        ],
+        "note": "Дивиденды, проценты, аренда и зарплата отсылают к другим статьям; международный договор может изменить результат."
+      }
+    ]
+  }
+}

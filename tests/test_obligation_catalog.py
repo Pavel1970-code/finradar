@@ -174,7 +174,11 @@ def test_non_georgian_payroll_does_not_claim_georgian_components() -> None:
 def _contains_rate_key(value: object) -> bool:
     if isinstance(value, dict):
         return any(
-            "rate" in str(key).lower() or _contains_rate_key(item)
+            (
+                "rate" in str(key).lower()
+                and str(key) != "rate_rule_ids"
+            )
+            or _contains_rate_key(item)
             for key, item in value.items()
         )
     if isinstance(value, list):
