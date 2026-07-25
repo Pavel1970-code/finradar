@@ -54,6 +54,7 @@
 | Канонический локальный зарплатный набор | **Implemented and tested** | Snapshot v5 хранит отдельные базы налога и пенсии, чистую зарплату, удержания, расход работодателя, пенсионный статус и сроки без имени/личного номера работника. Реальное соответствие регистрам конкретной 1С не проверялось. |
 | Стандартные зарплатные нормы Грузии | **Implemented and tested** | Версионированный снимок содержит 20% подоходного налога, пенсионные доли 2% + 2%, государственные пороги и основные сроки по публикациям 245 и 12. Льготы и специальные случаи не реализованы. |
 | Версионированный каталог налоговых ставок Грузии | **Implemented and tested** | Локальный SHA-256-protected JSON содержит 16 правил, их базы, условия, обязательные fact IDs, статьи и операционные периоды. Все шесть налогов представлены; неперенесённые таблицы акциза, импорта и земли помечены `reference_only`. Каталог не является общим исполняемым налоговым движком. |
+| Детерминированная настройка налогового профиля | **Partially implemented** | Реализованы 24 фиксированных вопроса, кодированное ветвление, `unknown`, проверки конфликтов и immutable локальная история ответов. ИИ не участвует. Экран настроек и автозаполнение из реальной 1С ещё отсутствуют. |
 | Реальный транспорт к 1С | **Planned** | Нет COM, файлового обмена, named pipe, OData/HTTP или локального sidecar. Не выбрана конкретная конфигурация 1С и её схема. |
 | Автоматическая первая полная ревизия 1С | **Planned** | Контракт допускает полный снимок, но оркестрация реального первого импорта отсутствует. |
 | Автоматические последующие incremental-обновления | **Partially implemented** | В контракте есть `since`, `cursor`, `next_cursor` и capability flag. Приложение не загружает предыдущий курсор и не планирует последующий запуск. |
@@ -130,7 +131,7 @@
 
 | Функция | Статус | Фактическое состояние |
 | --- | --- | --- |
-| Миграции локальной БД | **Implemented and tested** | Семь Alembic revisions создают 17 прикладных таблиц; вместе со служебной `alembic_version` в текущей БД 18 таблиц. Проверены новая БД и baseline существующей прототипной БД без потери исходных данных. |
+| Миграции локальной БД | **Implemented and tested** | Восемь Alembic revisions создают 18 прикладных таблиц; вместе со служебной `alembic_version` новая БД содержит 19 таблиц. Проверены новая БД и baseline существующей прототипной БД без потери исходных данных. |
 | История бухгалтерских снимков | **Implemented and tested** | Каждый запуск может сохранить полный canonical JSON и SHA-256. Снимок нельзя update/delete через SQLite triggers. |
 | История фискального анализа | **Implemented and tested** | Хранит входной synchronization run ID, дату, горизонт, algorithm version `fiscal-v1`, основной/stress forecast, применимость, reconciliation и последствия. |
 | Проверка целостности истории при чтении | **Implemented and tested** | Для бухгалтерского, банковского и фискального JSON пересчитывается SHA-256. |
@@ -215,6 +216,9 @@ active fiscal rules из Core SQLite ───────────┼─> de
 | `finradar.infrastructure.connectors.one_c` | 1C mapping shell и fixture transport | Тесты; реального транспорта нет |
 | `finradar.infrastructure.connectors.bank` | Fixture и CSV bank adapters | Тесты/API; desktop startup не подключён |
 | `finradar.infrastructure.fiscal_rule_registry` | Immutable definitions и lifecycle | Active rules загружаются при старте; registry UI/CLI нет |
+| `finradar.domain.tax_profile` | Вопросы, ответы, профиль, ветвление и конфликты | Детерминированная логика реализована; UI отсутствует |
+| `finradar.infrastructure.tax_profile_repository` | Immutable история налогового профиля | Локальная запись и проверка SHA-256 реализованы |
+| `finradar.application.tax_profile_readiness` | Объединение профильных, транзакционных и нормативных fact IDs | Выявляет пробелы выбранного правила; общий selector ещё отсутствует |
 | `finradar.infrastructure.regulatory_inbox` | Verify, accept/quarantine, replay protection и archive | Программный API; startup/outbox polling не подключены |
 | `finradar.infrastructure.regulatory_trust_store` | Public-key bootstrap, rotation и revocation | Bootstrap доступен CLI; дальнейший operator workflow не подключён |
 | `finradar.infrastructure.regulatory_retention` | Удаление старых rejected raw packages | Автоматически при старте Core |
@@ -392,7 +396,7 @@ finradar/
 │   └── src/finradar_contracts/          # package/signature/source/trust contracts
 ├── packages/monitor/
 │   └── src/finradar_monitor/            # public DB, signing keys, package export
-├── migrations/versions/                # 0001–0007
+├── migrations/versions/                # 0001–0008
 ├── tests/                              # 21 test modules
 ├── tools/                              # distribution/frozen-boundary checks
 ├── packaging/windows/                  # PyInstaller specs and build script

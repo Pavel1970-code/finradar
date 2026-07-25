@@ -182,6 +182,34 @@ class FiscalAnalysisRun(Base):
     )
 
 
+class TaxProfileVersion(Base):
+    __tablename__ = "tax_profile_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "company_external_id",
+            "profile_version",
+            name="uq_tax_profile_company_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=create_id)
+    company_external_id: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        index=True,
+    )
+    profile_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    valid_from: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    questionnaire_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
+
+
 class RegulatoryTrustedKey(Base):
     __tablename__ = "regulatory_trusted_keys"
 

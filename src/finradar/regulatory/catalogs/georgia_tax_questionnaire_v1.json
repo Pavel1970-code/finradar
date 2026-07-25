@@ -1,0 +1,870 @@
+{
+  "schema_version": 1,
+  "catalog_id": "georgia-tax-profile-questionnaire",
+  "catalog_version": 1,
+  "payload_sha256": "d5a935b607dd9890db6bad8d9e268f356987638713fece8b050a5ce3ccedcf34",
+  "payload": {
+    "jurisdiction": "GE",
+    "verified_on": "2026-07-25",
+    "sources": [
+      {
+        "source_id": "ge-entrepreneurs-law-current",
+        "title": "Закон Грузии «О предпринимателях», действующая консолидированная редакция",
+        "url": "https://matsne.gov.ge/ka/document/view/5230186",
+        "provisions": [
+          "статьи 1–3"
+        ],
+        "note": "Определяет индивидуального предпринимателя и формы предпринимательских обществ."
+      },
+      {
+        "source_id": "ge-tax-code-245",
+        "title": "Налоговый кодекс Грузии, консолидированная публикация 245",
+        "url": "https://matsne.gov.ge/ka/document/download/1043717/245/ge/pdf",
+        "provisions": [
+          "статьи 21–26¹",
+          "статьи 83–95⁶",
+          "статьи 96–99",
+          "статьи 157–176",
+          "статьи 182–204"
+        ],
+        "note": "Определяет налоговые категории, специальные статусы, объекты налогов и требования к применимости."
+      }
+    ],
+    "questions": [
+      {
+        "question_id": "company-legal-form",
+        "fact_id": "legal_form",
+        "order": 10,
+        "text_ru": "Какова юридическая форма вашей организации?",
+        "help_ru": "Обычно это поле можно получить из карточки организации в 1С или выписки из предпринимательского реестра.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "individual_entrepreneur",
+            "label_ru": "Индивидуальный предприниматель"
+          },
+          {
+            "value": "general_partnership",
+            "label_ru": "Полное товарищество"
+          },
+          {
+            "value": "limited_partnership",
+            "label_ru": "Коммандитное товарищество"
+          },
+          {
+            "value": "limited_liability_company",
+            "label_ru": "Общество с ограниченной ответственностью"
+          },
+          {
+            "value": "joint_stock_company",
+            "label_ru": "Акционерное общество"
+          },
+          {
+            "value": "cooperative",
+            "label_ru": "Кооператив"
+          },
+          {
+            "value": "other",
+            "label_ru": "Другая форма"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-entrepreneurs-law-current",
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "Закон «О предпринимателях», статья 2",
+          "Налоговый кодекс, статья 21"
+        ]
+      },
+      {
+        "question_id": "company-tax-residency",
+        "fact_id": "tax_residency_status",
+        "order": 20,
+        "text_ru": "Каков налоговый статус организации в Грузии?",
+        "help_ru": "Нужно отличить грузинское предприятие от иностранного предприятия или его постоянного учреждения.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "georgian_enterprise",
+            "label_ru": "Предприятие Грузии"
+          },
+          {
+            "value": "foreign_enterprise",
+            "label_ru": "Иностранное предприятие"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 21–22"
+        ]
+      },
+      {
+        "question_id": "foreign-permanent-establishment",
+        "fact_id": "georgian_permanent_establishment_status",
+        "order": 30,
+        "text_ru": "Есть ли у иностранного предприятия постоянное учреждение в Грузии?",
+        "help_ru": "Ответ влияет на налоговую базу и порядок удержания налога с выплат нерезиденту.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "tax_residency_status",
+            "operator": "equals",
+            "values": [
+              "foreign_enterprise"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 21–22, 29 и 96"
+        ]
+      },
+      {
+        "question_id": "company-primary-activity",
+        "fact_id": "activity_type",
+        "order": 40,
+        "text_ru": "Какой основной вид деятельности указан для организации?",
+        "help_ru": "Следует использовать код или точное наименование из учётной системы либо регистрационного документа, а не свободное предположение.",
+        "answer_kind": "text",
+        "required": true,
+        "options": [],
+        "maximum_length": 200,
+        "source_ids": [
+          "ge-entrepreneurs-law-current",
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "Закон «О предпринимателях», статьи 2–3",
+          "Налоговый кодекс, специальные правила по видам деятельности"
+        ]
+      },
+      {
+        "question_id": "company-municipality",
+        "fact_id": "municipality_code",
+        "order": 50,
+        "text_ru": "В каком муниципалитете находится основное место деятельности?",
+        "help_ru": "Значение должно поступить из адреса регистрации или подтверждённого адреса объекта. Оно необходимо для местных ставок.",
+        "answer_kind": "text",
+        "required": true,
+        "options": [],
+        "maximum_length": 100,
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 7 и 204"
+        ]
+      },
+      {
+        "question_id": "individual-special-regime",
+        "fact_id": "individual_special_regime",
+        "order": 60,
+        "text_ru": "Есть ли у индивидуального предпринимателя специальный налоговый режим?",
+        "help_ru": "Выбирается только статус, официально присвоенный налоговым органом и действующий на указанную дату.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "none",
+            "label_ru": "Специального режима нет"
+          },
+          {
+            "value": "micro_business",
+            "label_ru": "Микробизнес"
+          },
+          {
+            "value": "small_business",
+            "label_ru": "Малый бизнес"
+          },
+          {
+            "value": "fixed_taxpayer",
+            "label_ru": "Фиксированный налогоплательщик"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "legal_form",
+            "operator": "equals",
+            "values": [
+              "individual_entrepreneur"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 83–95⁶"
+        ],
+        "source_reference_required_for": [
+          "micro_business",
+          "small_business",
+          "fixed_taxpayer"
+        ]
+      },
+      {
+        "question_id": "company-special-statuses",
+        "fact_id": "company_special_statuses",
+        "order": 70,
+        "text_ru": "Какие подтверждённые специальные налоговые статусы есть у предприятия?",
+        "help_ru": "Можно выбрать несколько совместимых статусов. Каждый выбранный статус должен подтверждаться сертификатом, реестром или решением органа.",
+        "answer_kind": "multiple_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "none",
+            "label_ru": "Специальных статусов нет"
+          },
+          {
+            "value": "international_company",
+            "label_ru": "Международная компания"
+          },
+          {
+            "value": "virtual_zone_person",
+            "label_ru": "Лицо виртуальной зоны"
+          },
+          {
+            "value": "free_industrial_zone_enterprise",
+            "label_ru": "Предприятие свободной индустриальной зоны"
+          },
+          {
+            "value": "special_trading_company",
+            "label_ru": "Специальная торговая компания"
+          },
+          {
+            "value": "special_enterprise",
+            "label_ru": "Специальное предприятие"
+          },
+          {
+            "value": "tourist_enterprise",
+            "label_ru": "Туристическое предприятие"
+          },
+          {
+            "value": "agricultural_cooperative",
+            "label_ru": "Сельскохозяйственный кооператив"
+          },
+          {
+            "value": "high_mountain_enterprise",
+            "label_ru": "Предприятие высокогорного населённого пункта"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "legal_form",
+            "operator": "any_of",
+            "values": [
+              "general_partnership",
+              "limited_partnership",
+              "limited_liability_company",
+              "joint_stock_company",
+              "cooperative",
+              "other"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 23–26¹ и положения о соответствующих льготах"
+        ],
+        "source_reference_required_for": [
+          "international_company",
+          "virtual_zone_person",
+          "free_industrial_zone_enterprise",
+          "special_trading_company",
+          "special_enterprise",
+          "tourist_enterprise",
+          "agricultural_cooperative",
+          "high_mountain_enterprise"
+        ]
+      },
+      {
+        "question_id": "regulated-activity-types",
+        "fact_id": "regulated_activity_types",
+        "order": 80,
+        "text_ru": "Осуществляет ли организация деятельность со специальными налоговыми правилами?",
+        "help_ru": "Выберите только фактически осуществляемые и документально подтверждаемые виды деятельности.",
+        "answer_kind": "multiple_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "none",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "banking",
+            "label_ru": "Банковская деятельность"
+          },
+          {
+            "value": "credit_union",
+            "label_ru": "Кредитный союз"
+          },
+          {
+            "value": "microfinance",
+            "label_ru": "Микрофинансовая организация"
+          },
+          {
+            "value": "lending_entity",
+            "label_ru": "Субъект кредитования"
+          },
+          {
+            "value": "gambling",
+            "label_ru": "Игорная деятельность"
+          },
+          {
+            "value": "oil_and_gas",
+            "label_ru": "Нефтегазовые операции"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 80, 97–98 и отраслевые положения Кодекса"
+        ]
+      },
+      {
+        "question_id": "vat-registration",
+        "fact_id": "vat_registration_status",
+        "order": 90,
+        "text_ru": "Организация зарегистрирована плательщиком НДС?",
+        "help_ru": "Нужен фактический статус регистрации, а не предположение по размеру оборота.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 157 и 165–165²"
+        ],
+        "source_reference_required_for": [
+          "yes"
+        ]
+      },
+      {
+        "question_id": "vat-registration-date",
+        "fact_id": "vat_registration_effective_from",
+        "order": 100,
+        "text_ru": "С какой даты действует регистрация плательщиком НДС?",
+        "help_ru": "Дата необходима, чтобы не применять статус к более ранним операциям.",
+        "answer_kind": "date",
+        "required": true,
+        "options": [],
+        "show_when": [
+          {
+            "fact_id": "vat_registration_status",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 165"
+        ]
+      },
+      {
+        "question_id": "company-has-employees",
+        "fact_id": "has_employees",
+        "order": 110,
+        "text_ru": "Есть ли у организации наёмные работники?",
+        "help_ru": "Ответ включает или исключает зарплатные налоговые и пенсионные проверки.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 101, 153–154"
+        ]
+      },
+      {
+        "question_id": "company-imports-goods",
+        "fact_id": "has_import_activity",
+        "order": 120,
+        "text_ru": "Ввозит ли организация товары через таможенную границу Грузии?",
+        "help_ru": "Ответ определяет необходимость проверки налога на импорт, импортного НДС и возможного акциза.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 162, 195–199"
+        ]
+      },
+      {
+        "question_id": "import-codes-available",
+        "fact_id": "import_commodity_codes_available",
+        "order": 130,
+        "text_ru": "Передаёт ли бухгалтерская система полные товарные коды импортируемых товаров?",
+        "help_ru": "Без полного кода программа не может безопасно выбрать ставку налога на импорт.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "has_import_activity",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 197"
+        ]
+      },
+      {
+        "question_id": "company-excise-activity",
+        "fact_id": "has_excise_activity",
+        "order": 140,
+        "text_ru": "Производит, импортирует или поставляет ли организация подакцизные товары либо услуги?",
+        "help_ru": "Положительный ответ включает проверку объекта акциза и классификационной ставки.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 182–188¹"
+        ]
+      },
+      {
+        "question_id": "excise-codes-available",
+        "fact_id": "excise_commodity_codes_available",
+        "order": 150,
+        "text_ru": "Есть ли в учётных данных коды, количество и единицы измерения подакцизных объектов?",
+        "help_ru": "Эти данные необходимы для выбора строки акцизной таблицы и формулы.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "has_excise_activity",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 188 и 188¹"
+        ]
+      },
+      {
+        "question_id": "company-taxable-property",
+        "fact_id": "has_taxable_property",
+        "order": 160,
+        "text_ru": "Есть ли у организации имущество, которое может облагаться налогом на имущество?",
+        "help_ru": "Ответ включает основные средства, инвестиционную недвижимость, незавершённое строительство и отдельное лизинговое имущество.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 201–202"
+        ]
+      },
+      {
+        "question_id": "property-data-available",
+        "fact_id": "property_register_data_available",
+        "order": 170,
+        "text_ru": "Передаёт ли учётная система стоимость, вид, дату приобретения и местонахождение имущества?",
+        "help_ru": "Без этих данных нельзя проверить налоговую базу и применимую местную ставку.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "has_taxable_property",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 201–202"
+        ]
+      },
+      {
+        "question_id": "company-land",
+        "fact_id": "has_land",
+        "order": 180,
+        "text_ru": "Есть ли у организации земля в собственности или пользовании?",
+        "help_ru": "Налог на землю зависит от состояния прав на 1 апреля, категории, площади и муниципалитета.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 203–204"
+        ]
+      },
+      {
+        "question_id": "land-data-available",
+        "fact_id": "cadastral_data_available",
+        "order": 190,
+        "text_ru": "Доступны ли кадастровый номер, площадь, категория и муниципалитет земельного участка?",
+        "help_ru": "Без этих реквизитов невозможно выбрать территориальную строку ставки.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "show_when": [
+          {
+            "fact_id": "has_land",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статьи 203–204"
+        ]
+      },
+      {
+        "question_id": "company-pays-dividends",
+        "fact_id": "pays_dividends",
+        "order": 200,
+        "text_ru": "Выплачивает ли организация дивиденды?",
+        "help_ru": "Операции и получатели должны поступать из бухгалтерии; настройка только включает соответствующую проверку.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 130"
+        ]
+      },
+      {
+        "question_id": "company-pays-interest",
+        "fact_id": "pays_interest",
+        "order": 210,
+        "text_ru": "Выплачивает ли организация проценты физическим лицам или нерезидентам?",
+        "help_ru": "Получатель, сумма и финансовый инструмент должны поступать из бухгалтерских документов.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 131"
+        ]
+      },
+      {
+        "question_id": "company-pays-nonresidents",
+        "fact_id": "pays_nonresidents",
+        "order": 220,
+        "text_ru": "Производит ли организация выплаты нерезидентам?",
+        "help_ru": "Вид дохода, страна и наличие постоянного учреждения определяются по конкретной выплате.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "статья 134"
+        ]
+      },
+      {
+        "question_id": "company-uses-tax-reliefs",
+        "fact_id": "uses_tax_reliefs",
+        "order": 230,
+        "text_ru": "Применяет ли организация налоговые льготы или освобождения?",
+        "help_ru": "Следует указывать только фактически применяемую льготу с документальным основанием.",
+        "answer_kind": "single_choice",
+        "required": true,
+        "options": [
+          {
+            "value": "yes",
+            "label_ru": "Да"
+          },
+          {
+            "value": "no",
+            "label_ru": "Нет"
+          },
+          {
+            "value": "unknown",
+            "label_ru": "Не знаю"
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "положения Кодекса об освобождениях и льготах"
+        ],
+        "source_reference_required_for": [
+          "yes"
+        ]
+      },
+      {
+        "question_id": "tax-relief-reference",
+        "fact_id": "tax_relief_reference",
+        "order": 240,
+        "text_ru": "Укажите наименование льготы и подтверждающий документ.",
+        "help_ru": "Программа не будет определять льготу по свободному описанию; запись используется для проверки и последующего сопоставления.",
+        "answer_kind": "text",
+        "required": true,
+        "options": [],
+        "maximum_length": 500,
+        "show_when": [
+          {
+            "fact_id": "uses_tax_reliefs",
+            "operator": "equals",
+            "values": [
+              "yes"
+            ]
+          }
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "source_provisions": [
+          "положение Кодекса, указанное в подтверждающем документе"
+        ]
+      }
+    ]
+  }
+}

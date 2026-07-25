@@ -115,3 +115,6 @@ The separately versioned Georgian tax-rate baseline, its source provisions,
 required fact IDs, and deliberately incomplete classification schedules are
 documented in
 [GEORGIA_TAX_RATES.md](docs/regulatory/GEORGIA_TAX_RATES.md).
+The deterministic, non-AI company tax-profile questionnaire and its immutable
+local answer history are documented in
+[GEORGIA_TAX_PROFILE_QUESTIONNAIRE.md](docs/regulatory/GEORGIA_TAX_PROFILE_QUESTIONNAIRE.md).

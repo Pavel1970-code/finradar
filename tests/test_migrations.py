@@ -26,6 +26,7 @@ EXPECTED_TABLES = {
     "regulatory_trusted_keys",
     "source_snapshots",
     "synchronization_runs",
+    "tax_profile_versions",
 }
 
 
@@ -41,7 +42,7 @@ def test_new_database_is_created_at_head(tmp_path: Path) -> None:
     assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0007_integration_sdk"
+            "0008_tax_profile"
         )
 
 
@@ -66,5 +67,5 @@ def test_existing_prototype_database_is_baselined_without_data_loss(tmp_path: Pa
             "Fictional Company"
         )
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0007_integration_sdk"
+            "0008_tax_profile"
         )

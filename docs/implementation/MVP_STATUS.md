@@ -153,9 +153,9 @@ calculate amounts.
   and balance-mismatch states enter the preflight report and are never guessed.
 - Immutable local bank synchronization history with canonical JSON, SHA-256
   verification, cursors, and links from the accounting snapshot to the bank run.
-- Additive migrations `0004` through `0007`; the prototype database is at
-  `0007_integration_sdk` with its existing company and eight cash-flow records
-  preserved.
+- Additive migrations `0004` through `0008`; schema head is
+  `0008_tax_profile`. Migration tests preserve the existing prototype company
+  and cash-flow records.
 - The one-click dashboard includes a dependency-free 30-day daily-balance
   chart, the latest successful run time, and synchronized primary/stress
   presentation.
@@ -232,6 +232,17 @@ calculate amounts.
 - Excise, import commodity lists, land, and fixed-tax classifications are marked
   `reference_only`; the catalog cannot present them as deterministic until the
   complete official schedules and applicable subordinate acts are encoded.
+- A checksum-protected Georgian tax-profile questionnaire contains 24 fixed
+  questions with encoded choices, legal sources, conditional visibility, and
+  explicit `unknown` answers. No AI component creates or selects questions.
+- Immutable local company tax-profile versions store answer periods, provenance,
+  verification status, canonical JSON, and SHA-256. SQLite triggers reject
+  update and deletion.
+- Deterministic profile checks detect incompatible international/FIZ statuses,
+  microbusiness with employees, fixed taxpayer with VAT registration, and
+  company-only statuses assigned to an individual entrepreneur.
+- Profile facts can be combined with transaction and regulatory fact IDs to
+  produce the exact missing-data list for a tax-rate rule.
 
 ## Verification
 
@@ -242,7 +253,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest local result: Ruff passed; 150 tests passed. The suite includes Ed25519
+Latest local result: Ruff passed; 161 tests passed. The suite includes Ed25519
 tamper rejection, key rotation and revocation, package expiry, quarantine,
 replay protection, immutable import audit, archive-integrity verification,
 distribution manifests and wheel-boundary verification, the regulatory trust
@@ -280,6 +291,9 @@ and UI smoke tests.
 - Historical rate periods before 25 July 2026 are not reconstructed. The first
   catalog version guarantees current applicability from its verification date
   and must not be used to back-calculate earlier periods.
+- The questionnaire domain, storage, and branching logic exist, but no desktop
+  settings/onboarding screen uses them yet. Real 1C and public-registry
+  autofill are also not connected.
 - Weekend deadline rolling is deterministic. Public holidays are applied only
   when supplied explicitly with the rule; a maintained Georgian holiday
   calendar is not implemented.
@@ -320,9 +334,9 @@ and UI smoke tests.
 9. Add a reviewed Georgian business-day calendar and define the next VAT
    calculation scope: corrections and import/reverse-charge document mapping
    before mixed-use deductions.
-10. Build a local applicability resolver that maps canonical accounting fact
-    IDs to rate-rule requirements, produces a missing-data report, and passes
-    only an unambiguous selected rule into a deterministic calculator.
+10. Connect the tax profile to canonical 1C company fields, build the onboarding
+    UI from the fixed questionnaire, and complete the applicability resolver so
+    that only one unambiguous selected rule reaches a deterministic calculator.
 11. Import the complete official excise/import classification tables and the
     first selected municipality's property-tax acts as independently versioned
     schedules before enabling those calculations.
