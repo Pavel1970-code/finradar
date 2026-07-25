@@ -204,8 +204,25 @@ calculate amounts.
 - The catalog records that the historical mandatory social-insurance law lost
   force on 1 January 2006 and that the current Tax Code has no separate general
   payroll tax in its list of taxes.
-- Georgian aggregate payroll rows now produce a data-readiness limitation
-  explaining that income-tax and pension components cannot yet be checked.
+- A checksum-protected Georgian payroll rule snapshot records the standard 20%
+  income-tax rate, 2% employee and 2% employer pension shares, state
+  co-financing thresholds, reporting deadline, legal sources, and verification
+  date. It is not an automatic legal update feed.
+- Financial snapshot schema version 5 adds canonical local payroll rows with
+  separate cash compensation, non-cash benefit, tax base, pension base,
+  deductions, net salary, employer cost, participation status, and deadlines.
+  Versions 1–4 remain readable.
+- The 1C mapping shell accepts a configurable payroll field map and exposes
+  individual mapping failures as data gaps. It is tested only with an injected
+  fixture transport.
+- Deterministic payroll checks validate net-salary arithmetic, standard tax and
+  pension amounts, state co-financing, deadlines, and payment-calendar totals.
+- The Georgian pilot now uses two fictional employee rows and separate net
+  salary, income-tax, and pension cash events. One worker is a pension
+  participant and one is explicitly outside the scheme; no personal name or
+  national identifier is stored.
+- Georgian aggregate payroll rows without the canonical dataset still produce
+  a data-readiness limitation explaining which components are unavailable.
 
 ## Verification
 
@@ -216,7 +233,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest local result: Ruff passed; 134 tests passed. The suite includes Ed25519
+Latest local result: Ruff passed; 142 tests passed. The suite includes Ed25519
 tamper rejection, key rotation and revocation, package expiry, quarantine,
 replay protection, immutable import audit, archive-integrity verification,
 distribution manifests and wheel-boundary verification, the regulatory trust

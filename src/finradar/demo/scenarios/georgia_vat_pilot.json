@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "scenario_id": "georgia_vat_pilot",
-  "scenario_version": 1,
-  "payload_sha256": "f748834da812ad93efc2816905328ceba46024c71ee1c6e2129e4d52cdb2978e",
+  "scenario_version": 2,
+  "payload_sha256": "a7b66098581092a05368317892e3d0ee3db9121d9c53a9fcc4c764658d2b1dd1",
   "payload": {
     "title": "Грузия: аудит НДС и прогноз — пилот",
-    "fictional_notice": "Компания и бухгалтерские операции вымышлены. Ставка, отчётный период и срок уплаты НДС взяты из действующей консолидированной редакции Налогового кодекса Грузии; расчёт намеренно ограничен стандартными внутренними операциями.",
+    "fictional_notice": "Компания и бухгалтерские операции вымышлены. Ставки и сроки НДС, зарплатного подоходного налога и накопительных пенсионных взносов взяты из действующих консолидированных редакций законодательства Грузии; расчёты ограничены явно указанными стандартными условиями.",
     "as_of": "2026-07-10",
-    "horizon_days": 30,
+    "horizon_days": 45,
     "stress_overdue_days": 0,
     "accounting": {
       "source_system": "demo-accounting:georgia_vat_pilot:v1",
@@ -16,7 +16,8 @@
         "company_profile",
         "account_balances",
         "accounting_facts",
-        "payment_calendar"
+        "payment_calendar",
+        "payroll"
       ],
       "company": {
         "external_id": "fictional-ge-company",
@@ -173,23 +174,77 @@
           }
         },
         {
-          "external_id": "fictional-ge-payroll",
-          "title": "Агрегированная зарплатная выплата за июль",
-          "amount": "4000.00",
+          "external_id": "fictional-ge-payroll-net",
+          "title": "Чистая зарплата сотрудникам за июль",
+          "amount": "3150.00",
           "currency": "GEL",
           "due_date": "2026-07-31",
           "direction": "outflow",
           "kind": "planned",
           "status": "confirmed",
-          "category": "payroll_aggregate",
+          "category": "payroll_net_salary",
           "account_external_id": "fictional-ge-operating-account",
-          "source_reference": "fictional-payment-calendar:ge:003",
+          "source_reference": "fictional-payment-calendar:ge:payroll-net-2026-07",
           "counterparty": {
             "external_id": "fictional-ge-employees",
-            "name": "Сотрудники — агрегированная выплата",
+            "name": "Сотрудники — чистая зарплата",
             "kind": "employees"
           },
-          "payment_purpose": "Единая сумма без разложения налога и пенсионных взносов",
+          "payment_purpose": "Чистая зарплата после налога и удержаний",
+          "payment_basis": {
+            "document_type": "payroll_register",
+            "document_number": "GE-DEMO-PAY-07",
+            "document_date": "2026-07-10",
+            "description": "Вымышленная расчётная ведомость"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31"
+        },
+        {
+          "external_id": "fictional-ge-payroll-income-tax",
+          "title": "Подоходный налог с зарплаты за июль",
+          "amount": "800.00",
+          "currency": "GEL",
+          "due_date": "2026-07-31",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "payroll_income_tax",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:payroll-tax-2026-07",
+          "counterparty": {
+            "external_id": "ge-revenue-service",
+            "name": "Служба доходов Грузии",
+            "kind": "tax_authority"
+          },
+          "payment_purpose": "Удержанный подоходный налог при выплате зарплаты",
+          "payment_basis": {
+            "document_type": "payroll_register",
+            "document_number": "GE-DEMO-PAY-07",
+            "document_date": "2026-07-10",
+            "description": "Вымышленная расчётная ведомость"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31"
+        },
+        {
+          "external_id": "fictional-ge-payroll-pension",
+          "title": "Пенсионные взносы за июль",
+          "amount": "100.00",
+          "currency": "GEL",
+          "due_date": "2026-08-17",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "payroll_pension",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:payroll-pension-2026-07",
+          "counterparty": {
+            "external_id": "ge-pension-fund",
+            "name": "Пенсионный фонд Грузии",
+            "kind": "other"
+          },
+          "payment_purpose": "50 GEL удержано у участника и 50 GEL за счёт работодателя",
           "payment_basis": {
             "document_type": "payroll_register",
             "document_number": "GE-DEMO-PAY-07",
@@ -225,6 +280,68 @@
           },
           "period_start": "2026-08-01",
           "period_end": "2026-08-31"
+        }
+      ],
+      "payroll_records": [
+        {
+          "external_id": "fictional-ge-payroll-row-employee-a",
+          "payroll_run_id": "GE-DEMO-PAY-07",
+          "employee_local_id": "employee-local-a",
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31",
+          "payment_date": "2026-07-31",
+          "currency": "GEL",
+          "status": "approved",
+          "payment_form": "cash",
+          "gross_cash_compensation": "2500.00",
+          "taxable_non_cash_benefit": "0.00",
+          "income_tax_base": "2500.00",
+          "income_tax_withheld": "500.00",
+          "pension_contribution_base": "2500.00",
+          "employee_pension_contribution": "50.00",
+          "employer_pension_contribution": "50.00",
+          "other_employee_withholdings": "0.00",
+          "net_salary_payable": "1950.00",
+          "employer_other_costs": "0.00",
+          "pension_participation": "participant",
+          "tax_treatment": "standard",
+          "income_tax_remittance_due_date": "2026-07-31",
+          "payroll_declaration_due_date": "2026-08-17",
+          "pension_contribution_due_date": "2026-08-17",
+          "state_pension_cofinancing": "50.00",
+          "annual_pension_base_before": "12500.00",
+          "tax_treatment_reference": "Налоговый кодекс Грузии, статьи 81(1), 101 и 154",
+          "source_reference": "fictional-payroll-register:GE-DEMO-PAY-07:employee-a"
+        },
+        {
+          "external_id": "fictional-ge-payroll-row-employee-b",
+          "payroll_run_id": "GE-DEMO-PAY-07",
+          "employee_local_id": "employee-local-b",
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31",
+          "payment_date": "2026-07-31",
+          "currency": "GEL",
+          "status": "approved",
+          "payment_form": "cash",
+          "gross_cash_compensation": "1500.00",
+          "taxable_non_cash_benefit": "0.00",
+          "income_tax_base": "1500.00",
+          "income_tax_withheld": "300.00",
+          "pension_contribution_base": "0.00",
+          "employee_pension_contribution": "0.00",
+          "employer_pension_contribution": "0.00",
+          "other_employee_withholdings": "0.00",
+          "net_salary_payable": "1200.00",
+          "employer_other_costs": "0.00",
+          "pension_participation": "not_participant",
+          "tax_treatment": "standard",
+          "income_tax_remittance_due_date": "2026-07-31",
+          "payroll_declaration_due_date": "2026-08-17",
+          "pension_contribution_due_date": "2026-08-17",
+          "state_pension_cofinancing": "0.00",
+          "annual_pension_base_before": null,
+          "tax_treatment_reference": "Налоговый кодекс Грузии, статьи 81(1), 101 и 154",
+          "source_reference": "fictional-payroll-register:GE-DEMO-PAY-07:employee-b"
         }
       ],
       "source_issues": [],
@@ -274,15 +391,14 @@
     "expected": {
       "readiness_status": "limited",
       "opening_balance": "6000.00",
-      "closing_balance": "-1000.00",
+      "closing_balance": "-1050.00",
       "minimum_balance": "-3000.00",
       "first_gap_date": "2026-07-12",
       "required_funding": "3000.00",
       "fiscal_obligation_amount": "2500.00",
       "stress_minimum_balance": "-3000.00",
       "issue_codes": [
-        "bank_statements_empty",
-        "payroll_breakdown_unavailable"
+        "bank_statements_empty"
       ],
       "bank_matched_count": 0,
       "bank_missing_count": 0

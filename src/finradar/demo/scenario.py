@@ -47,6 +47,13 @@ from finradar.domain.fiscal_consequences import (
     ViolationEvent,
     ViolationType,
 )
+from finradar.domain.payroll import (
+    PayrollRecord,
+    PayrollRecordStatus,
+    PayrollPaymentForm,
+    PayrollTaxTreatment,
+    PensionParticipationStatus,
+)
 
 
 SCENARIO_SCHEMA_VERSION = 1
@@ -132,6 +139,37 @@ class _IssueData(_ContractModel):
     source_reference: str = ""
 
 
+class _PayrollRecordData(_ContractModel):
+    external_id: str
+    payroll_run_id: str
+    employee_local_id: str
+    period_start: date
+    period_end: date
+    payment_date: date
+    currency: str
+    status: PayrollRecordStatus
+    payment_form: PayrollPaymentForm
+    gross_cash_compensation: Decimal = Field(ge=0)
+    taxable_non_cash_benefit: Decimal = Field(ge=0)
+    income_tax_base: Decimal = Field(ge=0)
+    income_tax_withheld: Decimal = Field(ge=0)
+    pension_contribution_base: Decimal = Field(ge=0)
+    employee_pension_contribution: Decimal = Field(ge=0)
+    employer_pension_contribution: Decimal = Field(ge=0)
+    other_employee_withholdings: Decimal = Field(ge=0)
+    net_salary_payable: Decimal = Field(ge=0)
+    employer_other_costs: Decimal = Field(ge=0)
+    pension_participation: PensionParticipationStatus
+    tax_treatment: PayrollTaxTreatment
+    income_tax_remittance_due_date: date
+    payroll_declaration_due_date: date
+    pension_contribution_due_date: date
+    state_pension_cofinancing: Decimal | None = Field(default=None, ge=0)
+    annual_pension_base_before: Decimal | None = Field(default=None, ge=0)
+    tax_treatment_reference: str = ""
+    source_reference: str = ""
+
+
 class _AccountingData(_ContractModel):
     source_system: str
     captured_at: datetime
@@ -140,6 +178,7 @@ class _AccountingData(_ContractModel):
     balances: tuple[_BalanceData, ...] = ()
     metrics: tuple[_MetricData, ...] = ()
     events: tuple[_EventData, ...] = ()
+    payroll_records: tuple[_PayrollRecordData, ...] = ()
     source_issues: tuple[_IssueData, ...] = ()
     source_cursor: str | None = None
 
@@ -409,6 +448,9 @@ def _to_domain(envelope: _ScenarioEnvelope) -> DemoScenario:
         balances=tuple(AccountBalance(**item.model_dump()) for item in accounting.balances),
         metrics=tuple(AccountingMetric(**item.model_dump()) for item in accounting.metrics),
         events=tuple(_event_to_domain(item) for item in accounting.events),
+        payroll_records=tuple(
+            PayrollRecord(**item.model_dump()) for item in accounting.payroll_records
+        ),
         source_issues=tuple(
             SourceDataIssue(**item.model_dump()) for item in accounting.source_issues
         ),

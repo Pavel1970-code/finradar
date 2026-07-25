@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_id": "georgia-mandatory-obligations",
   "catalog_version": 1,
-  "payload_sha256": "8d80fe98b74cf0ba7ac63660e60128a4ffd30f5c2cb44d78df2a13ab33b9b70f",
+  "payload_sha256": "240fc30e4ef0cf6f39096887775c7847834bdd318d891c5d078b8da4bb9509bd",
   "payload": {
     "jurisdiction": "GE",
     "verified_on": "2026-07-25",
@@ -21,9 +21,9 @@
         "note": "Официальный грузинский текст; ставки и формулы в каталог версии 1 не переносятся."
       },
       {
-        "source_id": "ge-funded-pension-law-11",
-        "title": "Закон Грузии «О накопительной пенсии»",
-        "url": "https://new.matsne.gov.ge/ka/document/download/4280127/11/ge/pdf",
+        "source_id": "ge-funded-pension-law-12",
+        "title": "Закон Грузии «О накопительной пенсии», консолидированная публикация 12",
+        "url": "https://www.matsne.gov.ge/ka/document/download/4280127/12/ge/pdf",
         "provisions": [
           "статья 3",
           "положения об участии работников, работодателей, самозанятых и государства"
@@ -121,7 +121,7 @@
         "kind": "tax",
         "applicability": "company_specific",
         "cash_flow_treatment": "direct_outflow",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Физическое лицо, индивидуальный предприниматель либо налоговый агент в установленных случаях",
         "recipient": "Бюджет Грузии",
         "trigger": "Получение облагаемого дохода или обязанность налогового агента удержать налог",
@@ -133,7 +133,11 @@
         ],
         "source_ids": [
           "ge-tax-code-245"
-        ]
+        ],
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
+        "note": "Частичная реализация относится только к стандартному подоходному налогу с зарплаты."
       },
       {
         "instrument_id": "ge-tax-profit",
@@ -248,7 +252,7 @@
         "kind": "contractual_payment",
         "applicability": "employee_specific",
         "cash_flow_treatment": "calculation_base",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Работодатель",
         "recipient": "Работник и связанные получатели удержаний",
         "trigger": "Начисление вознаграждения по трудовому договору",
@@ -263,9 +267,12 @@
         "source_ids": [
           "ge-labour-code",
           "ge-tax-code-245",
-          "ge-funded-pension-law-11"
+          "ge-funded-pension-law-12"
         ],
         "group_id": "ge-payroll",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
         "note": "Это база разложения. Её нельзя одновременно учитывать как денежный отток вместе с чистой зарплатой и удержаниями."
       },
       {
@@ -274,7 +281,7 @@
         "kind": "contractual_payment",
         "applicability": "employee_specific",
         "cash_flow_treatment": "direct_outflow",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Работодатель",
         "recipient": "Работник",
         "trigger": "Наступление даты выплаты зарплаты после расчёта удержаний",
@@ -287,10 +294,13 @@
         "source_ids": [
           "ge-labour-code",
           "ge-tax-code-245",
-          "ge-funded-pension-law-11"
+          "ge-funded-pension-law-12"
         ],
         "group_id": "ge-payroll",
-        "parent_instrument_id": "ge-payroll-gross-salary"
+        "parent_instrument_id": "ge-payroll-gross-salary",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ]
       },
       {
         "instrument_id": "ge-withholding-employment-income-tax",
@@ -298,7 +308,7 @@
         "kind": "tax_withholding",
         "applicability": "employee_specific",
         "cash_flow_treatment": "withheld_remittance",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Работодатель как налоговый агент",
         "recipient": "Бюджет Грузии",
         "trigger": "Выплата работнику облагаемой зарплаты",
@@ -313,6 +323,9 @@
         ],
         "group_id": "ge-payroll",
         "parent_instrument_id": "ge-tax-income",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
         "note": "Это часть валовой зарплаты, удержанная у работника, а не дополнительный расход работодателя сверх валовой зарплаты."
       },
       {
@@ -321,7 +334,7 @@
         "kind": "pension_contribution",
         "applicability": "employee_specific",
         "cash_flow_treatment": "withheld_remittance",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Работодатель от имени участвующего работника",
         "recipient": "Пенсионный фонд Грузии",
         "trigger": "Выплата зарплаты работнику, участвующему в накопительной пенсионной схеме",
@@ -332,11 +345,14 @@
           "история выхода или повторного вступления"
         ],
         "source_ids": [
-          "ge-funded-pension-law-11",
+          "ge-funded-pension-law-12",
           "ge-pension-procedure-2025"
         ],
         "group_id": "ge-payroll",
         "parent_instrument_id": "ge-payroll-gross-salary",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
         "note": "Удерживается из суммы работника; применимость нельзя определять только по наличию зарплаты."
       },
       {
@@ -345,7 +361,7 @@
         "kind": "pension_contribution",
         "applicability": "employee_specific",
         "cash_flow_treatment": "employer_additional_outflow",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Работодатель",
         "recipient": "Пенсионный фонд Грузии",
         "trigger": "Выплата зарплаты работнику, участвующему в накопительной пенсионной схеме",
@@ -355,11 +371,14 @@
           "период"
         ],
         "source_ids": [
-          "ge-funded-pension-law-11",
+          "ge-funded-pension-law-12",
           "ge-pension-procedure-2025"
         ],
         "group_id": "ge-payroll",
         "parent_instrument_id": "ge-payroll-gross-salary",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
         "note": "Это дополнительный расход работодателя сверх валовой зарплаты."
       },
       {
@@ -368,7 +387,7 @@
         "kind": "pension_contribution",
         "applicability": "employee_specific",
         "cash_flow_treatment": "no_company_cash_flow",
-        "formula_status": "catalog_only",
+        "formula_status": "partially_implemented",
         "payer_role": "Государство",
         "recipient": "Индивидуальный пенсионный счёт участника",
         "trigger": "Участие работника или самозанятого в накопительной пенсионной схеме",
@@ -377,11 +396,14 @@
           "годовой доход участника"
         ],
         "source_ids": [
-          "ge-funded-pension-law-11",
+          "ge-funded-pension-law-12",
           "ge-pension-procedure-2025"
         ],
         "group_id": "ge-payroll",
         "parent_instrument_id": "ge-payroll-gross-salary",
+        "calculation_rule_ids": [
+          "ge-payroll-standard"
+        ],
         "note": "Показывается для полноты, но не включается в денежный прогноз компании."
       },
       {
@@ -983,7 +1005,7 @@
           "решение или автоматическое основание"
         ],
         "source_ids": [
-          "ge-funded-pension-law-11",
+          "ge-funded-pension-law-12",
           "ge-pension-procedure-2025"
         ]
       },
@@ -1060,7 +1082,7 @@
         "finding_id": "ge-pension-is-conditional-per-person",
         "statement": "Пенсионные обязательства зависят от участия конкретного работника или самозанятого в накопительной пенсионной схеме.",
         "source_ids": [
-          "ge-funded-pension-law-11",
+          "ge-funded-pension-law-12",
           "ge-pension-procedure-2025"
         ],
         "consequence": "Для расчёта недостаточно общей суммы зарплаты; нужен пенсионный статус каждого работника."
@@ -1071,7 +1093,7 @@
         "source_ids": [
           "ge-labour-code",
           "ge-tax-code-245",
-          "ge-funded-pension-law-11"
+          "ge-funded-pension-law-12"
         ],
         "consequence": "В денежном прогнозе нельзя одновременно учитывать валовую зарплату и все её компоненты как независимые расходы."
       },

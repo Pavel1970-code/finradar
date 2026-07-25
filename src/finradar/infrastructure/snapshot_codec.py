@@ -20,10 +20,17 @@ from finradar.domain.financial_snapshot import (
     SourceDataIssue,
     SourceIssueSeverity,
 )
+from finradar.domain.payroll import (
+    PayrollRecord,
+    PayrollRecordStatus,
+    PayrollPaymentForm,
+    PayrollTaxTreatment,
+    PensionParticipationStatus,
+)
 
 
-SCHEMA_VERSION = 4
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4}
+SCHEMA_VERSION = 5
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, 5}
 
 
 def encode_snapshot(snapshot: FinancialSnapshot) -> str:
@@ -36,6 +43,9 @@ def encode_snapshot(snapshot: FinancialSnapshot) -> str:
         "balances": [_balance_to_dict(item) for item in snapshot.balances],
         "metrics": [_metric_to_dict(item) for item in snapshot.metrics],
         "events": [_event_to_dict(item) for item in snapshot.events],
+        "payroll_records": [
+            _payroll_record_to_dict(item) for item in snapshot.payroll_records
+        ],
         "source_issues": [_source_issue_to_dict(item) for item in snapshot.source_issues],
         "source_cursor": snapshot.source_cursor,
         "integration_references": [
@@ -128,6 +138,63 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
             )
             for item in payload["events"]
         ),
+        payroll_records=tuple(
+            PayrollRecord(
+                external_id=item["external_id"],
+                payroll_run_id=item["payroll_run_id"],
+                employee_local_id=item["employee_local_id"],
+                period_start=date.fromisoformat(item["period_start"]),
+                period_end=date.fromisoformat(item["period_end"]),
+                payment_date=date.fromisoformat(item["payment_date"]),
+                currency=item["currency"],
+                status=PayrollRecordStatus(item["status"]),
+                payment_form=PayrollPaymentForm(item["payment_form"]),
+                gross_cash_compensation=Decimal(item["gross_cash_compensation"]),
+                taxable_non_cash_benefit=Decimal(item["taxable_non_cash_benefit"]),
+                income_tax_base=Decimal(item["income_tax_base"]),
+                income_tax_withheld=Decimal(item["income_tax_withheld"]),
+                pension_contribution_base=Decimal(
+                    item["pension_contribution_base"]
+                ),
+                employee_pension_contribution=Decimal(
+                    item["employee_pension_contribution"]
+                ),
+                employer_pension_contribution=Decimal(
+                    item["employer_pension_contribution"]
+                ),
+                other_employee_withholdings=Decimal(
+                    item["other_employee_withholdings"]
+                ),
+                net_salary_payable=Decimal(item["net_salary_payable"]),
+                employer_other_costs=Decimal(item["employer_other_costs"]),
+                pension_participation=PensionParticipationStatus(
+                    item["pension_participation"]
+                ),
+                tax_treatment=PayrollTaxTreatment(item["tax_treatment"]),
+                income_tax_remittance_due_date=date.fromisoformat(
+                    item["income_tax_remittance_due_date"]
+                ),
+                payroll_declaration_due_date=date.fromisoformat(
+                    item["payroll_declaration_due_date"]
+                ),
+                pension_contribution_due_date=date.fromisoformat(
+                    item["pension_contribution_due_date"]
+                ),
+                state_pension_cofinancing=(
+                    Decimal(item["state_pension_cofinancing"])
+                    if item.get("state_pension_cofinancing") is not None
+                    else None
+                ),
+                annual_pension_base_before=(
+                    Decimal(item["annual_pension_base_before"])
+                    if item.get("annual_pension_base_before") is not None
+                    else None
+                ),
+                tax_treatment_reference=item.get("tax_treatment_reference", ""),
+                source_reference=item.get("source_reference", ""),
+            )
+            for item in payload.get("payroll_records", [])
+        ),
         source_issues=tuple(
             SourceDataIssue(
                 code=item["code"],
@@ -212,6 +279,59 @@ def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
         "period_end": (
             event.period_end.isoformat() if event.period_end is not None else None
         ),
+    }
+
+
+def _payroll_record_to_dict(
+    record: PayrollRecord,
+) -> dict[str, str | None]:
+    return {
+        "external_id": record.external_id,
+        "payroll_run_id": record.payroll_run_id,
+        "employee_local_id": record.employee_local_id,
+        "period_start": record.period_start.isoformat(),
+        "period_end": record.period_end.isoformat(),
+        "payment_date": record.payment_date.isoformat(),
+        "currency": record.currency,
+        "status": record.status.value,
+        "payment_form": record.payment_form.value,
+        "gross_cash_compensation": str(record.gross_cash_compensation),
+        "taxable_non_cash_benefit": str(record.taxable_non_cash_benefit),
+        "income_tax_base": str(record.income_tax_base),
+        "income_tax_withheld": str(record.income_tax_withheld),
+        "pension_contribution_base": str(record.pension_contribution_base),
+        "employee_pension_contribution": str(
+            record.employee_pension_contribution
+        ),
+        "employer_pension_contribution": str(
+            record.employer_pension_contribution
+        ),
+        "other_employee_withholdings": str(record.other_employee_withholdings),
+        "net_salary_payable": str(record.net_salary_payable),
+        "employer_other_costs": str(record.employer_other_costs),
+        "pension_participation": record.pension_participation.value,
+        "tax_treatment": record.tax_treatment.value,
+        "income_tax_remittance_due_date": (
+            record.income_tax_remittance_due_date.isoformat()
+        ),
+        "payroll_declaration_due_date": (
+            record.payroll_declaration_due_date.isoformat()
+        ),
+        "pension_contribution_due_date": (
+            record.pension_contribution_due_date.isoformat()
+        ),
+        "state_pension_cofinancing": (
+            str(record.state_pension_cofinancing)
+            if record.state_pension_cofinancing is not None
+            else None
+        ),
+        "annual_pension_base_before": (
+            str(record.annual_pension_base_before)
+            if record.annual_pension_base_before is not None
+            else None
+        ),
+        "tax_treatment_reference": record.tax_treatment_reference,
+        "source_reference": record.source_reference,
     }
 
 

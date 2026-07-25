@@ -27,6 +27,13 @@ from finradar.domain.financial_snapshot import (
     SourceDataIssue,
     SourceIssueSeverity,
 )
+from finradar.domain.payroll import (
+    PayrollRecord,
+    PayrollRecordStatus,
+    PayrollPaymentForm,
+    PayrollTaxTreatment,
+    PensionParticipationStatus,
+)
 
 
 RawRecord = Mapping[str, object]
@@ -36,6 +43,7 @@ ACCOUNTING_DATASETS = frozenset(
         DatasetKind.ACCOUNT_BALANCES,
         DatasetKind.ACCOUNTING_FACTS,
         DatasetKind.PAYMENT_CALENDAR,
+        DatasetKind.PAYROLL,
     }
 )
 
@@ -48,6 +56,7 @@ class OneCExtract:
     metrics: tuple[RawRecord, ...] | None
     accounting_events: tuple[RawRecord, ...] | None
     payment_events: tuple[RawRecord, ...] | None
+    payroll_records: tuple[RawRecord, ...] | None = None
     next_cursor: str | None = None
     source_issues: tuple[SourceDataIssue, ...] = ()
 
@@ -117,6 +126,39 @@ def _event_mapping() -> dict[str, str]:
     }
 
 
+def _payroll_mapping() -> dict[str, str]:
+    return {
+        "external_id": "external_id",
+        "payroll_run_id": "payroll_run_id",
+        "employee_local_id": "employee_local_id",
+        "period_start": "period_start",
+        "period_end": "period_end",
+        "payment_date": "payment_date",
+        "currency": "currency",
+        "status": "status",
+        "payment_form": "payment_form",
+        "gross_cash_compensation": "gross_cash_compensation",
+        "taxable_non_cash_benefit": "taxable_non_cash_benefit",
+        "income_tax_base": "income_tax_base",
+        "income_tax_withheld": "income_tax_withheld",
+        "pension_contribution_base": "pension_contribution_base",
+        "employee_pension_contribution": "employee_pension_contribution",
+        "employer_pension_contribution": "employer_pension_contribution",
+        "other_employee_withholdings": "other_employee_withholdings",
+        "net_salary_payable": "net_salary_payable",
+        "employer_other_costs": "employer_other_costs",
+        "pension_participation": "pension_participation",
+        "tax_treatment": "tax_treatment",
+        "income_tax_remittance_due_date": "income_tax_remittance_due_date",
+        "payroll_declaration_due_date": "payroll_declaration_due_date",
+        "pension_contribution_due_date": "pension_contribution_due_date",
+        "state_pension_cofinancing": "state_pension_cofinancing",
+        "annual_pension_base_before": "annual_pension_base_before",
+        "tax_treatment_reference": "tax_treatment_reference",
+        "source_reference": "source_reference",
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class OneCMappingProfile:
     profile_id: str
@@ -124,6 +166,7 @@ class OneCMappingProfile:
     balance_fields: Mapping[str, str] = field(default_factory=_balance_mapping)
     metric_fields: Mapping[str, str] = field(default_factory=_metric_mapping)
     event_fields: Mapping[str, str] = field(default_factory=_event_mapping)
+    payroll_fields: Mapping[str, str] = field(default_factory=_payroll_mapping)
     direction_values: Mapping[str, FinancialDirection] = field(
         default_factory=lambda: {
             "inflow": FinancialDirection.INFLOW,
@@ -228,6 +271,14 @@ class OneCAccountingConnector:
             available=available,
             issues=issues,
         )
+        payroll_records = self._records(
+            extract.payroll_records,
+            dataset=DatasetKind.PAYROLL,
+            label="payroll",
+            mapper=self._payroll,
+            available=available,
+            issues=issues,
+        )
 
         return FinancialSnapshot(
             source_system=self._source_system,
@@ -237,6 +288,7 @@ class OneCAccountingConnector:
             balances=balances,
             metrics=metrics,
             events=accounting_events + payment_events,
+            payroll_records=payroll_records,
             source_issues=tuple(issues),
             source_cursor=extract.next_cursor,
         )
@@ -273,6 +325,99 @@ class OneCAccountingConnector:
             currency=_currency(_required(record, fields, "currency")),
             period_start=period_start,
             period_end=period_end,
+            source_reference=_optional_text(
+                _optional(record, fields, "source_reference"), 500
+            )
+            or "",
+        )
+
+    def _payroll(self, record: RawRecord) -> PayrollRecord:
+        fields = self._mapping.payroll_fields
+        period_start = _date(_required(record, fields, "period_start"))
+        period_end = _date(_required(record, fields, "period_end"))
+        if period_end < period_start:
+            raise ValueError("payroll period is inverted")
+        state_cofinancing = _optional(record, fields, "state_pension_cofinancing")
+        annual_base_before = _optional(
+            record, fields, "annual_pension_base_before"
+        )
+        return PayrollRecord(
+            external_id=_text(_required(record, fields, "external_id"), 200),
+            payroll_run_id=_text(
+                _required(record, fields, "payroll_run_id"), 200
+            ),
+            employee_local_id=_text(
+                _required(record, fields, "employee_local_id"), 200
+            ),
+            period_start=period_start,
+            period_end=period_end,
+            payment_date=_date(_required(record, fields, "payment_date")),
+            currency=_currency(_required(record, fields, "currency")),
+            status=PayrollRecordStatus(
+                _text(_required(record, fields, "status"), 50)
+            ),
+            payment_form=PayrollPaymentForm(
+                _text(_required(record, fields, "payment_form"), 50)
+            ),
+            gross_cash_compensation=_nonnegative_decimal(
+                _required(record, fields, "gross_cash_compensation")
+            ),
+            taxable_non_cash_benefit=_nonnegative_decimal(
+                _optional(record, fields, "taxable_non_cash_benefit") or "0"
+            ),
+            income_tax_base=_nonnegative_decimal(
+                _required(record, fields, "income_tax_base")
+            ),
+            income_tax_withheld=_nonnegative_decimal(
+                _required(record, fields, "income_tax_withheld")
+            ),
+            pension_contribution_base=_nonnegative_decimal(
+                _required(record, fields, "pension_contribution_base")
+            ),
+            employee_pension_contribution=_nonnegative_decimal(
+                _required(record, fields, "employee_pension_contribution")
+            ),
+            employer_pension_contribution=_nonnegative_decimal(
+                _required(record, fields, "employer_pension_contribution")
+            ),
+            other_employee_withholdings=_nonnegative_decimal(
+                _optional(record, fields, "other_employee_withholdings") or "0"
+            ),
+            net_salary_payable=_nonnegative_decimal(
+                _required(record, fields, "net_salary_payable")
+            ),
+            employer_other_costs=_nonnegative_decimal(
+                _optional(record, fields, "employer_other_costs") or "0"
+            ),
+            pension_participation=PensionParticipationStatus(
+                _text(_required(record, fields, "pension_participation"), 50)
+            ),
+            tax_treatment=PayrollTaxTreatment(
+                _text(_required(record, fields, "tax_treatment"), 50)
+            ),
+            income_tax_remittance_due_date=_date(
+                _required(record, fields, "income_tax_remittance_due_date")
+            ),
+            payroll_declaration_due_date=_date(
+                _required(record, fields, "payroll_declaration_due_date")
+            ),
+            pension_contribution_due_date=_date(
+                _required(record, fields, "pension_contribution_due_date")
+            ),
+            state_pension_cofinancing=(
+                _nonnegative_decimal(state_cofinancing)
+                if state_cofinancing is not None
+                else None
+            ),
+            annual_pension_base_before=(
+                _nonnegative_decimal(annual_base_before)
+                if annual_base_before is not None
+                else None
+            ),
+            tax_treatment_reference=_optional_text(
+                _optional(record, fields, "tax_treatment_reference"), 500
+            )
+            or "",
             source_reference=_optional_text(
                 _optional(record, fields, "source_reference"), 500
             )

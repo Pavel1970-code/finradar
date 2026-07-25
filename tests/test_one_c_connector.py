@@ -91,6 +91,38 @@ def complete_extract() -> OneCExtract:
                 "period_end": "2026-07-15",
             },
         ),
+        payroll_records=(
+            {
+                "external_id": "payroll-row-1",
+                "payroll_run_id": "PAY-2026-07",
+                "employee_local_id": "employee-local-1",
+                "period_start": "2026-07-01",
+                "period_end": "2026-07-31",
+                "payment_date": "2026-07-31",
+                "currency": "GEL",
+                "status": "approved",
+                "payment_form": "cash",
+                "gross_cash_compensation": "1000.00",
+                "taxable_non_cash_benefit": "0.00",
+                "income_tax_base": "1000.00",
+                "income_tax_withheld": "200.00",
+                "pension_contribution_base": "1000.00",
+                "employee_pension_contribution": "20.00",
+                "employer_pension_contribution": "20.00",
+                "other_employee_withholdings": "0.00",
+                "net_salary_payable": "780.00",
+                "employer_other_costs": "0.00",
+                "pension_participation": "participant",
+                "tax_treatment": "standard",
+                "income_tax_remittance_due_date": "2026-07-31",
+                "payroll_declaration_due_date": "2026-08-17",
+                "pension_contribution_due_date": "2026-08-17",
+                "state_pension_cofinancing": "20.00",
+                "annual_pension_base_before": "6000.00",
+                "tax_treatment_reference": "Tax Code articles 81, 101 and 154",
+                "source_reference": "1c:payroll:row-1",
+            },
+        ),
         next_cursor="1c-cursor-100",
     )
 
@@ -118,6 +150,9 @@ def test_one_c_fixture_maps_facts_calendar_and_incremental_cursor() -> None:
     assert snapshot.events[1].counterparty.name == "Fictional supplier"
     assert snapshot.events[1].payment_basis.document_number == "DELIVERY-1"
     assert snapshot.events[1].period_end == date(2026, 7, 15)
+    assert snapshot.payroll_records[0].net_salary_payable == Decimal("780.00")
+    assert snapshot.payroll_records[0].employer_total_cost == Decimal("1020.00")
+    assert DatasetKind.PAYROLL in snapshot.available_datasets
     assert snapshot.source_cursor == "1c-cursor-100"
     assert snapshot.source_issues == ()
 
@@ -140,6 +175,7 @@ def test_one_c_invalid_record_becomes_visible_data_gap() -> None:
         metrics=source.metrics,
         accounting_events=source.accounting_events,
         payment_events=source.payment_events,
+        payroll_records=source.payroll_records,
     )
 
     snapshot = connector_for(extract).synchronize(SynchronizationRequest())

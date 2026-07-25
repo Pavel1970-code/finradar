@@ -49,8 +49,11 @@ def validate_accounting_snapshot(
         DatasetKind.PAYMENT_CALENDAR
     ):
         raise ConnectorContractError("Payment events were returned as unavailable.")
+    if snapshot.payroll_records and not snapshot.supplies(DatasetKind.PAYROLL):
+        raise ConnectorContractError("Payroll records were returned as unavailable.")
     _unique((item.external_id for item in snapshot.balances), "account balance")
     _unique((item.external_id for item in snapshot.events), "financial event")
+    _unique((item.external_id for item in snapshot.payroll_records), "payroll record")
     for balance in snapshot.balances:
         _finite(balance.amount, "Account balance")
     for metric in snapshot.metrics:
@@ -80,6 +83,11 @@ def validate_accounting_snapshot(
                 "Payment document number",
                 maximum=100,
             )
+    for payroll in snapshot.payroll_records:
+        for label, amount in payroll.amounts().items():
+            _finite(amount, f"Payroll {label}")
+        if payroll.currency != payroll.currency.upper() or len(payroll.currency) != 3:
+            raise ConnectorContractError("Payroll currency is invalid.")
     if snapshot.source_cursor is not None and (
         not snapshot.source_cursor.strip() or len(snapshot.source_cursor) > 500
     ):

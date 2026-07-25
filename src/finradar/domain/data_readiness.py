@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from enum import Enum
 
 from finradar.domain.financial_snapshot import (
@@ -9,6 +10,12 @@ from finradar.domain.financial_snapshot import (
     FinancialSnapshot,
     SourceIssueSeverity,
 )
+from finradar.domain.georgia_payroll import (
+    CURRENT_GEORGIA_PAYROLL_RULES,
+    PayrollCheckSeverity,
+    validate_georgian_payroll_record,
+)
+from finradar.domain.payroll import PayrollRecordStatus
 
 
 class ReadinessStatus(str, Enum):
@@ -242,16 +249,20 @@ def assess_forecast_readiness(
             snapshot.company is not None
             and snapshot.company.jurisdiction == "GE"
         ):
-            for event in planned_events:
-                if event.category not in {"payroll", "payroll_aggregate"}:
-                    continue
+            aggregate_payroll_events = tuple(
+                event
+                for event in planned_events
+                if event.category in {"payroll", "payroll_aggregate"}
+            )
+            if aggregate_payroll_events and not snapshot.payroll_records:
+                event = aggregate_payroll_events[0]
                 issues.append(
                     DataIssue(
                         code="payroll_breakdown_unavailable",
                         severity=IssueSeverity.WARNING,
-                        dataset=DatasetKind.ACCOUNTING_FACTS,
+                        dataset=DatasetKind.PAYROLL,
                         message=(
-                            f'Для операции «{event.title}» не передано разложение '
+                            f'Для операции «{event.title}» не передано локальное разложение '
                             "зарплаты на чистую выплату, налог и пенсионные взносы."
                         ),
                         impact=(
@@ -262,6 +273,70 @@ def assess_forecast_readiness(
                         ),
                         source_reference=event.source_reference or event.external_id,
                     )
+                )
+            if snapshot.supplies(DatasetKind.PAYROLL) and not snapshot.payroll_records:
+                issues.append(
+                    DataIssue(
+                        code="payroll_records_empty",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.PAYROLL,
+                        message="Источник заявил зарплатный набор, но не передал ни одной строки.",
+                        impact="Зарплатные налоги и пенсионные суммы нельзя проверить.",
+                    )
+                )
+            for record in snapshot.payroll_records:
+                for check in validate_georgian_payroll_record(
+                    record,
+                    CURRENT_GEORGIA_PAYROLL_RULES,
+                ):
+                    issues.append(
+                        DataIssue(
+                            code=check.code,
+                            severity=(
+                                IssueSeverity.ERROR
+                                if check.severity is PayrollCheckSeverity.ERROR
+                                else IssueSeverity.WARNING
+                            ),
+                            dataset=DatasetKind.PAYROLL,
+                            message=check.message,
+                            impact=check.impact,
+                            source_reference=check.source_reference,
+                        )
+                    )
+            active_payroll = tuple(
+                record
+                for record in snapshot.payroll_records
+                if record.status
+                not in {PayrollRecordStatus.CANCELLED, PayrollRecordStatus.PAID}
+            )
+            if any(
+                record.status is PayrollRecordStatus.PARTIALLY_PAID
+                for record in active_payroll
+            ):
+                issues.append(
+                    DataIssue(
+                        code="payroll_partial_settlement_details_missing",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.PAYROLL,
+                        message="Есть частично оплаченная зарплатная строка без разложения погашения.",
+                        impact="Остатки чистой зарплаты, налога и пенсии нельзя определить отдельно.",
+                    )
+                )
+            if active_payroll and aggregate_payroll_events:
+                issues.append(
+                    DataIssue(
+                        code="payroll_aggregate_conflicts_with_breakdown",
+                        severity=IssueSeverity.ERROR,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message="В платёжном календаре одновременно присутствуют агрегированная зарплата и её локальное разложение.",
+                        impact="Использование обеих форм задвоит денежный расход.",
+                    )
+                )
+            elif active_payroll:
+                _check_payroll_cash_components(
+                    active_payroll,
+                    planned_events,
+                    issues,
                 )
 
     if not snapshot.supplies(DatasetKind.ACCOUNTING_FACTS):
@@ -305,3 +380,60 @@ def assess_forecast_readiness(
         status = ReadinessStatus.READY
 
     return ReadinessReport(status=status, issues=tuple(issues))
+
+
+def _check_payroll_cash_components(
+    records,
+    planned_events,
+    issues: list[DataIssue],
+) -> None:
+    expected = {
+        "payroll_net_salary": sum(
+            (item.net_salary_payable for item in records),
+            start=Decimal("0"),
+        ),
+        "payroll_income_tax": sum(
+            (item.income_tax_withheld for item in records),
+            start=Decimal("0"),
+        ),
+        "payroll_pension": sum(
+            (item.pension_remittance_payable for item in records),
+            start=Decimal("0"),
+        ),
+        "payroll_other_withholding": sum(
+            (item.other_employee_withholdings for item in records),
+            start=Decimal("0"),
+        ),
+        "payroll_employer_other_cost": sum(
+            (item.employer_other_costs for item in records),
+            start=Decimal("0"),
+        ),
+    }
+    for category, expected_amount in expected.items():
+        if expected_amount == 0:
+            continue
+        actual_amount = sum(
+            (
+                event.amount
+                for event in planned_events
+                if event.category == category
+            ),
+            start=Decimal("0"),
+        )
+        if actual_amount == expected_amount:
+            continue
+        issues.append(
+            DataIssue(
+                code=f"{category}_calendar_mismatch",
+                severity=IssueSeverity.WARNING,
+                dataset=DatasetKind.PAYMENT_CALENDAR,
+                message=(
+                    f"Сумма компонента «{category}» в платёжном календаре "
+                    "не совпадает с зарплатным набором."
+                ),
+                impact=(
+                    "Прогноз использует платёжный календарь, поэтому зарплатный "
+                    "денежный поток может быть неполным или задвоенным."
+                ),
+            )
+        )

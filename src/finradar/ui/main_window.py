@@ -1837,6 +1837,7 @@ def _dataset_label(dataset: DatasetKind) -> str:
         DatasetKind.ACCOUNTING_FACTS: "учётные факты",
         DatasetKind.PAYMENT_CALENDAR: "платёжный календарь",
         DatasetKind.BANK_TRANSACTIONS: "банковские операции",
+        DatasetKind.PAYROLL: "расчётные ведомости",
     }[dataset]
 
 

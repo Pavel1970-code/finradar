@@ -6,6 +6,7 @@ import pytest
 
 from finradar.demo.scenario import DemoScenarioRepository
 from finradar.domain.data_readiness import assess_forecast_readiness
+from finradar.domain.financial_snapshot import DatasetKind
 from finradar.domain.obligation_catalog import (
     CashFlowTreatment,
     FormulaStatus,
@@ -78,6 +79,12 @@ def test_payroll_catalog_separates_cash_without_double_counting_gross_salary() -
         payroll["ge-pension-state-cofinancing"].cash_flow_treatment
         is CashFlowTreatment.NO_COMPANY_CASH_FLOW
     )
+    assert all(
+        item.formula_status is FormulaStatus.PARTIALLY_IMPLEMENTED
+        and item.calculation_rule_ids == ("ge-payroll-standard",)
+        for instrument_id, item in payroll.items()
+        if instrument_id != "ge-payroll-reporting"
+    )
 
 
 def test_catalog_records_repealed_social_insurance_and_no_separate_payroll_tax() -> None:
@@ -113,9 +120,32 @@ def test_catalog_checksum_rejects_modified_content(tmp_path: Path) -> None:
 
 def test_georgian_aggregate_payroll_is_reported_as_incomplete() -> None:
     scenario = DemoScenarioRepository().load("georgia_vat_pilot")
+    snapshot = scenario.accounting_snapshot
+    net_event = next(
+        item for item in snapshot.events if item.category == "payroll_net_salary"
+    )
+    aggregate_event = replace(
+        net_event,
+        external_id="aggregate-payroll",
+        title="Агрегированная зарплата",
+        amount=net_event.amount,
+        category="payroll_aggregate",
+    )
+    snapshot = replace(
+        snapshot,
+        available_datasets=snapshot.available_datasets - {DatasetKind.PAYROLL},
+        payroll_records=(),
+        events=tuple(
+            item
+            for item in snapshot.events
+            if item.category
+            not in {"payroll_net_salary", "payroll_income_tax", "payroll_pension"}
+        )
+        + (aggregate_event,),
+    )
 
     report = assess_forecast_readiness(
-        scenario.accounting_snapshot,
+        snapshot,
         as_of=scenario.as_of,
     )
 

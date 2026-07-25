@@ -108,3 +108,6 @@ available in
 The rate-free Georgian mandatory-obligation catalog and its payroll
 double-counting rules are documented in
 [GEORGIA_MANDATORY_OBLIGATIONS_CATALOG.md](docs/regulatory/GEORGIA_MANDATORY_OBLIGATIONS_CATALOG.md).
+The verified Georgian payroll rule snapshot, canonical local payroll dataset,
+and current limitations are documented in
+[GEORGIA_PAYROLL_RULES.md](docs/regulatory/GEORGIA_PAYROLL_RULES.md).

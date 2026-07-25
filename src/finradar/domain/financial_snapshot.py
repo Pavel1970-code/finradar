@@ -3,6 +3,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 
+from finradar.domain.payroll import PayrollRecord
+
 
 class DatasetKind(str, Enum):
     COMPANY_PROFILE = "company_profile"
@@ -10,6 +12,7 @@ class DatasetKind(str, Enum):
     ACCOUNTING_FACTS = "accounting_facts"
     PAYMENT_CALENDAR = "payment_calendar"
     BANK_TRANSACTIONS = "bank_transactions"
+    PAYROLL = "payroll"
 
 
 class SourceIssueSeverity(str, Enum):
@@ -138,6 +141,7 @@ class FinancialSnapshot:
     balances: tuple[AccountBalance, ...] = ()
     metrics: tuple[AccountingMetric, ...] = ()
     events: tuple[FinancialEvent, ...] = ()
+    payroll_records: tuple[PayrollRecord, ...] = ()
     source_issues: tuple[SourceDataIssue, ...] = ()
     source_cursor: str | None = None
     integration_references: tuple[IntegrationReference, ...] = ()
