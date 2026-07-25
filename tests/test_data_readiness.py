@@ -6,6 +6,9 @@ from finradar.domain.financial_snapshot import (
     AccountBalance,
     CompanyProfile,
     DatasetKind,
+    FinancialDirection,
+    FinancialEvent,
+    FinancialEventKind,
     FinancialSnapshot,
 )
 
@@ -93,3 +96,80 @@ def test_missing_balances_blocks_forecast() -> None:
     assert report.status is ReadinessStatus.BLOCKED
     assert "account_balances_unavailable" in {issue.code for issue in report.issues}
 
+
+def test_missing_counterparty_and_basis_limit_but_do_not_remove_payment() -> None:
+    snapshot = make_snapshot(
+        available_datasets=frozenset(
+            {
+                DatasetKind.COMPANY_PROFILE,
+                DatasetKind.ACCOUNT_BALANCES,
+                DatasetKind.ACCOUNTING_FACTS,
+                DatasetKind.PAYMENT_CALENDAR,
+            }
+        )
+    )
+    snapshot = FinancialSnapshot(
+        source_system=snapshot.source_system,
+        captured_at=snapshot.captured_at,
+        available_datasets=snapshot.available_datasets,
+        company=snapshot.company,
+        balances=snapshot.balances,
+        events=(
+            FinancialEvent(
+                external_id="payment-1",
+                title="Unidentified supplier payment",
+                amount=Decimal("100.00"),
+                currency="GEL",
+                due_date=AS_OF,
+                direction=FinancialDirection.OUTFLOW,
+                kind=FinancialEventKind.PLANNED,
+            ),
+        ),
+    )
+
+    report = assess_forecast_readiness(snapshot, as_of=AS_OF)
+
+    assert report.status is ReadinessStatus.LIMITED
+    assert {issue.code for issue in report.issues} == {
+        "payment_counterparty_missing",
+        "payment_basis_missing",
+    }
+
+
+def test_settlement_above_obligation_blocks_forecast() -> None:
+    snapshot = make_snapshot(
+        available_datasets=frozenset(
+            {
+                DatasetKind.COMPANY_PROFILE,
+                DatasetKind.ACCOUNT_BALANCES,
+                DatasetKind.ACCOUNTING_FACTS,
+                DatasetKind.PAYMENT_CALENDAR,
+            }
+        )
+    )
+    snapshot = FinancialSnapshot(
+        source_system=snapshot.source_system,
+        captured_at=snapshot.captured_at,
+        available_datasets=snapshot.available_datasets,
+        company=snapshot.company,
+        balances=snapshot.balances,
+        events=(
+            FinancialEvent(
+                external_id="payment-1",
+                title="Invalid partial payment",
+                amount=Decimal("100.00"),
+                settled_amount=Decimal("120.00"),
+                currency="GEL",
+                due_date=AS_OF,
+                direction=FinancialDirection.OUTFLOW,
+                kind=FinancialEventKind.PLANNED,
+            ),
+        ),
+    )
+
+    report = assess_forecast_readiness(snapshot, as_of=AS_OF)
+
+    assert report.status is ReadinessStatus.BLOCKED
+    assert "payment_settlement_exceeds_amount" in {
+        issue.code for issue in report.issues
+    }

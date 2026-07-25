@@ -15,12 +15,15 @@ from finradar.domain.financial_snapshot import (
     AccountBalance,
     AccountingMetric,
     CompanyProfile,
+    CounterpartyKind,
+    CounterpartyReference,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
     FinancialEventStatus,
     FinancialSnapshot,
+    PaymentBasis,
     SourceDataIssue,
     SourceIssueSeverity,
 )
@@ -102,6 +105,15 @@ def _event_mapping() -> dict[str, str]:
         "account_external_id": "account_external_id",
         "source_reference": "source_reference",
         "bank_transaction_id": "bank_transaction_id",
+        "counterparty_external_id": "counterparty_external_id",
+        "counterparty_name": "counterparty_name",
+        "counterparty_kind": "counterparty_kind",
+        "payment_purpose": "payment_purpose",
+        "document_type": "document_type",
+        "document_number": "document_number",
+        "document_date": "document_date",
+        "period_start": "period_start",
+        "period_end": "period_end",
     }
 
 
@@ -284,6 +296,40 @@ class OneCAccountingConnector:
             )
         except KeyError as error:
             raise ValueError("event direction or status is not mapped") from error
+        counterparty_name = _optional_text(
+            _optional(record, fields, "counterparty_name"), 200
+        )
+        counterparty = None
+        if counterparty_name is not None:
+            counterparty = CounterpartyReference(
+                external_id=_text(
+                    _required(record, fields, "counterparty_external_id"), 200
+                ),
+                name=counterparty_name,
+                kind=CounterpartyKind(
+                    _text(_required(record, fields, "counterparty_kind"), 50)
+                ),
+            )
+        document_type = _optional_text(
+            _optional(record, fields, "document_type"), 100
+        )
+        payment_basis = None
+        if document_type is not None:
+            payment_basis = PaymentBasis(
+                document_type=document_type,
+                document_number=_text(
+                    _required(record, fields, "document_number"), 100
+                ),
+                document_date=_date(_required(record, fields, "document_date")),
+                description=_optional_text(
+                    _optional(record, fields, "payment_purpose"), 500
+                )
+                or "",
+            )
+        period_start = _optional_date(_optional(record, fields, "period_start"))
+        period_end = _optional_date(_optional(record, fields, "period_end"))
+        if period_start is not None and period_end is not None and period_end < period_start:
+            raise ValueError("payment period is inverted")
         return FinancialEvent(
             external_id=_text(_required(record, fields, "external_id"), 200),
             title=_text(_required(record, fields, "title"), 200),
@@ -307,6 +353,14 @@ class OneCAccountingConnector:
             bank_transaction_id=_optional_text(
                 _optional(record, fields, "bank_transaction_id"), 200
             ),
+            counterparty=counterparty,
+            payment_purpose=_optional_text(
+                _optional(record, fields, "payment_purpose"), 500
+            )
+            or "",
+            payment_basis=payment_basis,
+            period_start=period_start,
+            period_end=period_end,
         )
 
     def _records(self, records, *, dataset, label, mapper, available, issues):
@@ -431,6 +485,10 @@ def _date(value: object) -> date:
             return datetime.fromisoformat(value).date()
         except ValueError:
             raise ValueError("date value is invalid") from error
+
+
+def _optional_date(value: object | None) -> date | None:
+    return _date(value) if value not in {None, ""} else None
 
 
 def _aware(value: datetime, label: str) -> datetime:

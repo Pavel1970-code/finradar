@@ -9,12 +9,15 @@ from finradar.domain.financial_snapshot import (
     AccountBalance,
     AccountingMetric,
     CompanyProfile,
+    CounterpartyKind,
+    CounterpartyReference,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
     FinancialEventStatus,
     FinancialSnapshot,
+    PaymentBasis,
 )
 
 
@@ -92,6 +95,17 @@ class DemoAccountingConnector:
                     status=FinancialEventStatus.CONFIRMED,
                     category="receivables",
                     account_external_id="demo-account",
+                    counterparty=CounterpartyReference(
+                        external_id="demo-customer",
+                        name="Fictional customer",
+                        kind=CounterpartyKind.CUSTOMER,
+                    ),
+                    payment_purpose="Payment for fictional goods",
+                    payment_basis=PaymentBasis(
+                        document_type="invoice",
+                        document_number="DEMO-001",
+                        document_date=self._as_of - timedelta(days=5),
+                    ),
                 ),
                 FinancialEvent(
                     external_id="demo-payment",
@@ -104,6 +118,17 @@ class DemoAccountingConnector:
                     status=FinancialEventStatus.CONFIRMED,
                     category="suppliers",
                     account_external_id="demo-account",
+                    counterparty=CounterpartyReference(
+                        external_id="demo-supplier",
+                        name="Fictional supplier",
+                        kind=CounterpartyKind.SUPPLIER,
+                    ),
+                    payment_purpose="Payment for fictional delivery",
+                    payment_basis=PaymentBasis(
+                        document_type="delivery_note",
+                        document_number="DEMO-002",
+                        document_date=self._as_of - timedelta(days=4),
+                    ),
                 ),
             )
             if DatasetKind.PAYMENT_CALENDAR in self._available_datasets

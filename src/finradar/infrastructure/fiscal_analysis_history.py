@@ -17,6 +17,7 @@ from finradar.application.forecast_history import (
     HistoricalFiscalConsequence,
     HistoricalFiscalObligation,
 )
+from finradar.domain.financial_snapshot import FinancialEventKind
 from finradar.domain.forecast import ForecastEvent, ForecastPoint, ForecastResult
 from finradar.infrastructure.models import (
     FiscalAnalysisRun,
@@ -258,6 +259,11 @@ def _decode_history_row(
             _decode_forecast_event(value)
             for value in _typed_sequence(result.get("stress_forecast_events"))
         ),
+        payment_events=tuple(
+            event
+            for event in snapshot.events
+            if event.kind is FinancialEventKind.PLANNED
+        ),
         obligations=_decode_obligations(result.get("rule_analyses")),
         consequences=tuple(
             _decode_consequence(value)
@@ -329,6 +335,11 @@ def _decode_obligations(value: object) -> tuple[HistoricalFiscalObligation, ...]
                 outstanding_amount=outstanding,
                 currency=obligation["currency"],
                 due_date=date.fromisoformat(obligation["due_date"]),
+                recipient_name=_stored_counterparty_name(
+                    obligation.get("payment_recipient")
+                ),
+                period_start=_optional_stored_date(obligation.get("period_start")),
+                period_end=_optional_stored_date(obligation.get("period_end")),
             )
         )
     return tuple(obligations)
@@ -368,3 +379,21 @@ def _strict_bool(value: object) -> bool:
     if not isinstance(value, bool):
         raise ValueError("Expected a stored boolean value.")
     return value
+
+
+def _stored_counterparty_name(value: object) -> str:
+    if value is None:
+        return "Налоговый орган"
+    payload = _typed_mapping(value, "CounterpartyReference")
+    name = payload.get("name")
+    if not isinstance(name, str) or not name:
+        raise ValueError("Stored counterparty name is invalid.")
+    return name
+
+
+def _optional_stored_date(value: object) -> date | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Stored date value is invalid.")
+    return date.fromisoformat(value)

@@ -4,6 +4,8 @@ from enum import Enum
 
 from finradar.domain.financial_snapshot import (
     DatasetKind,
+    FinancialEventKind,
+    FinancialEventStatus,
     FinancialSnapshot,
     SourceIssueSeverity,
 )
@@ -141,6 +143,100 @@ def assess_forecast_readiness(
                 impact="The event cannot be included without an explicit conversion policy.",
             )
         )
+
+    if snapshot.supplies(DatasetKind.PAYMENT_CALENDAR):
+        planned_events = tuple(
+            event
+            for event in snapshot.events
+            if event.kind is FinancialEventKind.PLANNED
+            and event.status is not FinancialEventStatus.CANCELLED
+        )
+        for event in planned_events:
+            reference = event.source_reference or event.external_id
+            if event.counterparty is None:
+                issues.append(
+                    DataIssue(
+                        code="payment_counterparty_missing",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message=(
+                            f'Для операции «{event.title}» не указан контрагент.'
+                        ),
+                        impact=(
+                            "Сумма учитывается в прогнозе, но пользователь не видит, "
+                            "кто должен заплатить или кому предназначена выплата."
+                        ),
+                        source_reference=reference,
+                    )
+                )
+            if event.payment_basis is None:
+                issues.append(
+                    DataIssue(
+                        code="payment_basis_missing",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message=(
+                            f'Для операции «{event.title}» не указан документ-основание.'
+                        ),
+                        impact=(
+                            "Сумма учитывается в прогнозе, но её нельзя связать "
+                            "со счётом, договором, накладной или расчётной ведомостью."
+                        ),
+                        source_reference=reference,
+                    )
+                )
+            if event.settled_amount > event.amount:
+                issues.append(
+                    DataIssue(
+                        code="payment_settlement_exceeds_amount",
+                        severity=IssueSeverity.ERROR,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message=(
+                            f'По операции «{event.title}» оплаченная сумма превышает '
+                            "сумму обязательства."
+                        ),
+                        impact=(
+                            "Остаток обязательства неоднозначен; прогноз заблокирован "
+                            "до исправления исходных данных."
+                        ),
+                        source_reference=reference,
+                    )
+                )
+            if (event.period_start is None) != (event.period_end is None):
+                issues.append(
+                    DataIssue(
+                        code="payment_period_incomplete",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message=(
+                            f'Для операции «{event.title}» расчётный период указан '
+                            "не полностью."
+                        ),
+                        impact=(
+                            "Платёж можно учесть по дате и сумме, но нельзя однозначно "
+                            "объяснить, за какой период он начислен."
+                        ),
+                        source_reference=reference,
+                    )
+                )
+            elif (
+                event.period_start is not None
+                and event.period_end is not None
+                and event.period_end < event.period_start
+            ):
+                issues.append(
+                    DataIssue(
+                        code="payment_period_inverted",
+                        severity=IssueSeverity.ERROR,
+                        dataset=DatasetKind.PAYMENT_CALENDAR,
+                        message=f'У операции «{event.title}» перепутаны границы периода.',
+                        impact=(
+                            "Период обязательства некорректен; прогноз заблокирован "
+                            "до исправления исходных данных."
+                        ),
+                        source_reference=reference,
+                    )
+                )
 
     if not snapshot.supplies(DatasetKind.ACCOUNTING_FACTS):
         issues.append(

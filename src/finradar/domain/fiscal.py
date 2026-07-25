@@ -5,6 +5,7 @@ from enum import Enum
 
 from finradar.domain.financial_snapshot import (
     AccountingMetric,
+    CounterpartyReference,
     FinancialEvent,
     FinancialEventStatus,
     FinancialSnapshot,
@@ -46,6 +47,7 @@ class PercentageFiscalRule:
     payment_days_after_period_end: int
     obligation_category: str
     source_reference: str
+    payment_recipient: CounterpartyReference | None = None
     status: FiscalRuleStatus = FiscalRuleStatus.CANDIDATE
 
 
@@ -70,6 +72,9 @@ class FiscalObligation:
     rate: Decimal
     source_reference: str
     explanation: str
+    period_start: date | None = None
+    period_end: date | None = None
+    payment_recipient: CounterpartyReference | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +209,9 @@ def calculate_fiscal_obligation(
             f"{normalize_money(metric.amount)} × {rule.rate} = {amount}; "
             f"rule {rule.rule_id} version {rule.version}."
         ),
+        period_start=metric.period_start,
+        period_end=metric.period_end,
+        payment_recipient=rule.payment_recipient,
     )
     return FiscalCalculationResult(applicability=applicability, obligation=obligation)
 

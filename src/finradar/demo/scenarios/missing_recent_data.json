@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "scenario_id": "missing_recent_data",
-  "scenario_version": 1,
-  "payload_sha256": "c47539a7b71169d381732045a377e1aebeea22662241ce4991474dfc608394c8",
+  "scenario_version": 2,
+  "payload_sha256": "002d3140f70e4139919f6965db073e7a2df4202098745f171b6e34f54cc0def6",
   "payload": {
     "title": "Неполные последние данные — вымышленный сценарий",
     "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
@@ -10,7 +10,7 @@
     "horizon_days": 30,
     "stress_overdue_days": 5,
     "accounting": {
-      "source_system": "demo-accounting:missing_recent_data:v1",
+      "source_system": "demo-accounting:missing_recent_data:v2",
       "captured_at": "2026-07-18T09:00:00+04:00",
       "available_datasets": ["company_profile", "account_balances", "accounting_facts", "payment_calendar"],
       "company": {
@@ -42,7 +42,7 @@
       "events": [
         {
           "external_id": "fictional-missing-receipt",
-          "title": "Ожидаемое вымышленное поступление",
+          "title": "Ожидаемая оплата от покупателя",
           "amount": "1000.00",
           "currency": "GEL",
           "due_date": "2026-07-19",
@@ -51,7 +51,19 @@
           "status": "confirmed",
           "category": "receivables",
           "account_external_id": "fictional-missing-account",
-          "source_reference": "fictional-calendar:missing:1"
+          "source_reference": "fictional-calendar:missing:1",
+          "counterparty": {
+            "external_id": "fictional-missing-customer",
+            "name": "ООО «Демо Покупатель Север»",
+            "kind": "customer"
+          },
+          "payment_purpose": "Оплата по выставленному счёту",
+          "payment_basis": {
+            "document_type": "invoice",
+            "document_number": "ДЕМО-СЧ-404",
+            "document_date": "2026-07-10",
+            "description": "Вымышленный счёт покупателю"
+          }
         },
         {
           "external_id": "fictional-missing-supplier",
@@ -68,7 +80,7 @@
         }
       ],
       "source_issues": [],
-      "source_cursor": "demo:missing_recent_data:v1"
+      "source_cursor": "demo:missing_recent_data:v2"
     },
     "bank": {
       "source_system": "demo-bank:missing_recent_data:v1",
@@ -107,8 +119,8 @@
     "fiscal_rules": [
       {
         "rule_id": "fictional-missing-tax",
-        "version": 1,
-        "title": "Вымышленный налог для сценария неполных данных",
+        "version": 2,
+        "title": "НДС при неполных данных — вымышленный",
         "jurisdiction": "XX-DEMO",
         "tax_regimes": ["fictional-missing-regime"],
         "effective_from": "2026-01-01",
@@ -117,7 +129,12 @@
         "rate": "0.05",
         "payment_days_after_period_end": 3,
         "obligation_category": "fictional_tax",
-        "source_reference": "fictional-public-document:missing-tax:v1"
+        "source_reference": "fictional-public-document:missing-tax:v2",
+        "payment_recipient": {
+          "external_id": "fictional-tax-authority",
+          "name": "Вымышленное налоговое казначейство",
+          "kind": "tax_authority"
+        }
       }
     ],
     "penalty_rules": [
@@ -141,7 +158,12 @@
       "required_funding": "0.00",
       "fiscal_obligation_amount": "500.00",
       "stress_minimum_balance": "-2.50",
-      "issue_codes": ["bank_coverage_stale", "bank_transactions_missing_in_accounting"],
+      "issue_codes": [
+        "bank_coverage_stale",
+        "bank_transactions_missing_in_accounting",
+        "payment_counterparty_missing",
+        "payment_basis_missing"
+      ],
       "bank_matched_count": 0,
       "bank_missing_count": 1
     }

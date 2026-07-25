@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
@@ -25,7 +25,14 @@ from finradar.application.forecast_history import (
     ForecastHistoryItem,
 )
 from finradar.domain.data_readiness import ReadinessStatus
-from finradar.domain.financial_snapshot import DatasetKind
+from finradar.domain.financial_snapshot import (
+    CounterpartyKind,
+    DatasetKind,
+    FinancialDirection,
+    FinancialEvent,
+    FinancialEventKind,
+    FinancialEventStatus,
+)
 from finradar.domain.forecast import ForecastResult
 from finradar.ui.forecast_view_model import (
     ForecastViewModel,
@@ -689,7 +696,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(risk_card)
 
         self._build_balance_chart(root_layout, result, company.base_currency)
-        self._build_upcoming_payments(root_layout, analysis, result)
+        self._build_payment_calendar(root_layout, analysis, result)
 
         audit_note = QLabel(
             "Расчёт выполнен детерминированным ядром. "
@@ -718,90 +725,276 @@ class MainWindow(QMainWindow):
         layout.addWidget(chart)
         root_layout.addWidget(card)
 
-    def _build_upcoming_payments(
+    def _build_payment_calendar(
         self,
         root_layout: QVBoxLayout,
         analysis: SynchronizationOutcome,
         result: ForecastResult,
     ) -> None:
-        forecast_events = (
-            analysis.stress_forecast_events
-            if self._show_stress and analysis.stress_forecast_events
-            else analysis.forecast_events
+        events = tuple(
+            event
+            for event in analysis.snapshot.events
+            if event.kind is FinancialEventKind.PLANNED
+            and event.status is not FinancialEventStatus.CANCELLED
+            and event.amount > event.settled_amount
+            and event.due_date <= result.end_date
         )
-        payments = tuple(
-            sorted(
-                (
-                    event
-                    for event in forecast_events
-                    if not event.is_inflow
-                    and result.start_date <= event.due_date <= result.end_date
-                    and event.amount > Decimal("0.00")
-                ),
-                key=lambda item: (item.due_date, -item.amount),
-            )
-        )[:6]
-        if not payments:
-            return
+        tax_events = tuple(event for event in events if _is_tax_event(event))
+        receivables = tuple(
+            event
+            for event in events
+            if event.direction is FinancialDirection.INFLOW
+            and not _is_tax_event(event)
+        )
+        payables = tuple(
+            event
+            for event in events
+            if event.direction is FinancialDirection.OUTFLOW
+            and not _is_tax_event(event)
+        )
+        self._build_event_calendar_section(
+            root_layout,
+            title="Ожидаемые поступления",
+            empty_text="В платёжном календаре нет ожидаемых поступлений.",
+            events=receivables,
+            as_of=result.start_date,
+            row_object_name="receivableRow",
+            amount_object_name="receiptAmount",
+        )
+        self._build_event_calendar_section(
+            root_layout,
+            title="Предстоящие выплаты",
+            empty_text="В платёжном календаре нет предстоящих выплат.",
+            events=payables,
+            as_of=result.start_date,
+            row_object_name="payableRow",
+            amount_object_name="paymentAmount",
+        )
+        self._build_tax_calendar(
+            root_layout,
+            analysis=analysis,
+            tax_events=tax_events,
+            as_of=result.start_date,
+        )
 
-        company = analysis.snapshot.company
-        assert company is not None
-        titles = self._payment_titles(analysis)
-        heading = QLabel("Ближайшие значимые платежи")
+    def _build_event_calendar_section(
+        self,
+        root_layout: QVBoxLayout,
+        *,
+        title: str,
+        empty_text: str,
+        events: tuple[FinancialEvent, ...],
+        as_of,
+        row_object_name: str,
+        amount_object_name: str,
+    ) -> None:
+        heading = QLabel(title)
         heading.setObjectName("sectionTitle")
         root_layout.addWidget(heading)
         card = QFrame()
         card.setObjectName("paymentsCard")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(24, 18, 24, 18)
+        layout.setContentsMargins(24, 12, 24, 12)
         layout.setSpacing(0)
-        for index, payment in enumerate(payments):
-            row = QFrame()
-            row.setObjectName("paymentRow")
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 11, 0, 11)
-            title = QLabel(titles.get(payment.reference, "Запланированный платёж"))
-            title.setObjectName("paymentTitle")
-            title.setWordWrap(True)
-            due_date = QLabel(payment.due_date.strftime("%d.%m.%Y"))
-            due_date.setObjectName("paymentDate")
-            amount = QLabel(format_money(payment.amount, company.base_currency))
-            amount.setObjectName("paymentAmount")
-            row_layout.addWidget(title, 1)
-            row_layout.addWidget(due_date)
-            row_layout.addWidget(amount)
-            layout.addWidget(row)
-            if index != len(payments) - 1:
-                separator = QFrame()
-                separator.setObjectName("paymentSeparator")
-                separator.setFrameShape(QFrame.Shape.HLine)
-                layout.addWidget(separator)
+        if not events:
+            empty = QLabel(empty_text)
+            empty.setObjectName("historyEmpty")
+            layout.addWidget(empty)
+        else:
+            ordered = tuple(
+                sorted(events, key=lambda item: (item.due_date, -item.amount))
+            )[:8]
+            for index, event in enumerate(ordered):
+                self._add_event_calendar_row(
+                    layout,
+                    event,
+                    as_of=as_of,
+                    row_object_name=row_object_name,
+                    amount_object_name=amount_object_name,
+                )
+                if index != len(ordered) - 1:
+                    _add_separator(layout, "paymentSeparator")
         root_layout.addWidget(card)
 
-    @staticmethod
-    def _payment_titles(analysis: SynchronizationOutcome) -> dict[str, str]:
-        titles = {
-            event.external_id: event.title
-            for event in analysis.snapshot.events
-        }
-        titles.update(
-            {
-                event.obligation_key: event.title
-                for event in analysis.snapshot.events
-                if event.obligation_key is not None
-            }
+    def _add_event_calendar_row(
+        self,
+        layout: QVBoxLayout,
+        event: FinancialEvent,
+        *,
+        as_of,
+        row_object_name: str,
+        amount_object_name: str,
+    ) -> None:
+        row = QFrame()
+        row.setObjectName(row_object_name)
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 12, 0, 12)
+        row_layout.setSpacing(16)
+
+        date_label = QLabel(event.due_date.strftime("%d.%m.%Y"))
+        date_label.setObjectName(
+            "overdueDate" if event.due_date < as_of else "paymentDate"
         )
-        for item in analysis.rule_analyses:
-            obligation = item.calculation.obligation
-            if obligation is not None:
-                titles[obligation.obligation_key] = obligation.title
-        for consequence in analysis.consequences:
-            title = {
-                "late_payment_penalty": "Пеня за просрочку",
-                "fine": "Возможный штраф",
-            }.get(consequence.consequence_type, "Фискальное последствие")
-            titles[consequence.consequence_key] = title
-        return titles
+        date_label.setMinimumWidth(92)
+        row_layout.addWidget(date_label)
+
+        details_layout = QVBoxLayout()
+        details_layout.setSpacing(4)
+        title = QLabel(event.title)
+        title.setObjectName("paymentTitle")
+        title.setWordWrap(True)
+        details_layout.addWidget(title)
+        counterparty = (
+            event.counterparty.name
+            if event.counterparty is not None
+            else "Контрагент не указан"
+        )
+        purpose = event.payment_purpose or "Назначение платежа не указано"
+        party_label = QLabel(f"{counterparty} · {purpose}")
+        party_label.setObjectName("paymentDetails")
+        party_label.setWordWrap(True)
+        details_layout.addWidget(party_label)
+        basis = QLabel(_event_basis_text(event))
+        basis.setObjectName("paymentBasis")
+        basis.setWordWrap(True)
+        details_layout.addWidget(basis)
+        row_layout.addLayout(details_layout, 1)
+
+        amount_layout = QVBoxLayout()
+        amount_layout.setSpacing(4)
+        outstanding = max(event.amount - event.settled_amount, Decimal("0.00"))
+        amount = QLabel(format_money(outstanding, event.currency))
+        amount.setObjectName(amount_object_name)
+        status = QLabel(_event_status_text(event, as_of=as_of))
+        status.setObjectName(
+            "overdueStatus" if event.due_date < as_of else "paymentStatus"
+        )
+        amount_layout.addWidget(amount)
+        amount_layout.addWidget(status)
+        row_layout.addLayout(amount_layout)
+        layout.addWidget(row)
+
+    def _build_tax_calendar(
+        self,
+        root_layout: QVBoxLayout,
+        *,
+        analysis: SynchronizationOutcome,
+        tax_events: tuple[FinancialEvent, ...],
+        as_of,
+    ) -> None:
+        recorded_obligation_keys = {
+            event.obligation_key
+            for event in tax_events
+            if event.obligation_key is not None
+        }
+        obligations = tuple(
+            (item.calculation.obligation, item.reconciliation)
+            for item in analysis.rule_analyses
+            if item.calculation.obligation is not None
+            and item.reconciliation is not None
+            and item.reconciliation.outstanding_amount > Decimal("0.00")
+            and item.calculation.obligation.obligation_key
+            not in recorded_obligation_keys
+        )
+        if not tax_events and not obligations:
+            return
+        heading = QLabel("Налоговый календарь")
+        heading.setObjectName("sectionTitle")
+        root_layout.addWidget(heading)
+        card = QFrame()
+        card.setObjectName("taxCalendarCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(24, 12, 24, 12)
+        layout.setSpacing(0)
+
+        rows: list[tuple[object, str]] = [
+            (event, "event") for event in tax_events
+        ]
+        rows.extend((item, "obligation") for item in obligations)
+        rows.sort(
+            key=lambda row: (
+                row[0].due_date
+                if row[1] == "event"
+                else row[0][0].due_date
+            )
+        )
+        for index, (value, kind) in enumerate(rows):
+            if kind == "event":
+                self._add_event_calendar_row(
+                    layout,
+                    value,
+                    as_of=as_of,
+                    row_object_name="taxCalendarRow",
+                    amount_object_name="taxCalendarAmount",
+                )
+            else:
+                obligation, reconciliation = value
+                self._add_tax_obligation_row(
+                    layout,
+                    obligation=obligation,
+                    outstanding_amount=reconciliation.outstanding_amount,
+                    as_of=as_of,
+                )
+            if index != len(rows) - 1:
+                _add_separator(layout, "paymentSeparator")
+        root_layout.addWidget(card)
+
+    def _add_tax_obligation_row(
+        self,
+        layout: QVBoxLayout,
+        *,
+        obligation,
+        outstanding_amount: Decimal,
+        as_of,
+    ) -> None:
+        row = QFrame()
+        row.setObjectName("taxCalendarRow")
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 12, 0, 12)
+        row_layout.setSpacing(16)
+        due_date = QLabel(obligation.due_date.strftime("%d.%m.%Y"))
+        due_date.setObjectName(
+            "overdueDate" if obligation.due_date < as_of else "paymentDate"
+        )
+        due_date.setMinimumWidth(92)
+        row_layout.addWidget(due_date)
+
+        details_layout = QVBoxLayout()
+        details_layout.setSpacing(4)
+        title = QLabel(obligation.title)
+        title.setObjectName("paymentTitle")
+        details_layout.addWidget(title)
+        recipient = (
+            obligation.payment_recipient.name
+            if obligation.payment_recipient is not None
+            else "Налоговый орган"
+        )
+        recipient_label = QLabel(f"{recipient} · детерминированный расчёт")
+        recipient_label.setObjectName("paymentDetails")
+        details_layout.addWidget(recipient_label)
+        period = QLabel(
+            _period_text(obligation.period_start, obligation.period_end)
+        )
+        period.setObjectName("paymentBasis")
+        details_layout.addWidget(period)
+        row_layout.addLayout(details_layout, 1)
+
+        amount_layout = QVBoxLayout()
+        amount_layout.setSpacing(4)
+        amount = QLabel(format_money(outstanding_amount, obligation.currency))
+        amount.setObjectName("taxCalendarAmount")
+        status = QLabel(
+            "Просрочено"
+            if obligation.due_date < as_of
+            else "Рассчитано, ожидает оплаты"
+        )
+        status.setObjectName(
+            "overdueStatus" if obligation.due_date < as_of else "paymentStatus"
+        )
+        amount_layout.addWidget(amount)
+        amount_layout.addWidget(status)
+        row_layout.addLayout(amount_layout)
+        layout.addWidget(row)
 
     def _build_forecast_mode_controls(
         self,
@@ -858,13 +1051,18 @@ class MainWindow(QMainWindow):
 
         for obligation in view_model.obligations:
             rate = (obligation.rate * Decimal("100")).normalize()
+            period_text = _period_text(
+                obligation.period_start,
+                obligation.period_end,
+            )
             label = QLabel(
                 f"{obligation.title}\n"
                 f"Расчёт: {rate}% от базы — "
                 f"{format_money(obligation.amount, obligation.currency)}. "
                 f"Срок: {obligation.due_date.strftime('%d.%m.%Y')}. "
                 "Осталось оплатить: "
-                f"{format_money(obligation.outstanding_amount, obligation.currency)}."
+                f"{format_money(obligation.outstanding_amount, obligation.currency)}.\n"
+                f"Получатель: {obligation.recipient_name}. {period_text}."
             )
             label.setObjectName("detailText")
             label.setWordWrap(True)
@@ -1169,29 +1367,54 @@ class MainWindow(QMainWindow):
         root_layout: QVBoxLayout,
         details: ForecastHistoryDetails,
     ) -> None:
-        payments = tuple(
-            sorted(
-                (item for item in details.forecast_events if not item.is_inflow),
-                key=lambda item: (item.due_date, -item.amount),
+        events = tuple(
+            event
+            for event in details.payment_events
+            if event.status is not FinancialEventStatus.CANCELLED
+            and event.amount > event.settled_amount
+            and event.due_date <= details.forecast.end_date
+        )
+        receivables = tuple(
+            event
+            for event in events
+            if event.direction is FinancialDirection.INFLOW
+            and not _is_tax_event(event)
+        )
+        payables = tuple(
+            event
+            for event in events
+            if event.direction is FinancialDirection.OUTFLOW
+            and not _is_tax_event(event)
+        )
+        tax_events = tuple(event for event in events if _is_tax_event(event))
+        self._build_event_calendar_section(
+            root_layout,
+            title="Сохранённые ожидаемые поступления",
+            empty_text="Ожидаемых поступлений в сохранённом прогнозе нет.",
+            events=receivables,
+            as_of=details.forecast.start_date,
+            row_object_name="receivableRow",
+            amount_object_name="receiptAmount",
+        )
+        self._build_event_calendar_section(
+            root_layout,
+            title="Сохранённые предстоящие выплаты",
+            empty_text="Предстоящих выплат в сохранённом прогнозе нет.",
+            events=payables,
+            as_of=details.forecast.start_date,
+            row_object_name="payableRow",
+            amount_object_name="paymentAmount",
+        )
+        if tax_events:
+            self._build_event_calendar_section(
+                root_layout,
+                title="Сохранённый налоговый календарь",
+                empty_text="",
+                events=tax_events,
+                as_of=details.forecast.start_date,
+                row_object_name="taxCalendarRow",
+                amount_object_name="taxCalendarAmount",
             )
-        )[:6]
-        if not payments:
-            return
-        heading = QLabel("Сохранённые ближайшие платежи")
-        heading.setObjectName("sectionTitle")
-        root_layout.addWidget(heading)
-        card = QFrame()
-        card.setObjectName("paymentsCard")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(24, 14, 24, 14)
-        for payment in payments:
-            label = QLabel(
-                f"{payment.due_date.strftime('%d.%m.%Y')} · "
-                f"{format_money(payment.amount, details.item.currency)}"
-            )
-            label.setObjectName("detailText")
-            layout.addWidget(label)
-        root_layout.addWidget(card)
 
     def _build_historical_fiscal_summary(
         self,
@@ -1208,11 +1431,16 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(24, 18, 24, 18)
         for obligation in details.obligations:
+            period = _period_text(
+                obligation.period_start,
+                obligation.period_end,
+            )
             label = QLabel(
                 f"{obligation.title}: "
                 f"{format_money(obligation.amount, obligation.currency)}; "
                 f"осталось {format_money(obligation.outstanding_amount, obligation.currency)}; "
-                f"срок {obligation.due_date.strftime('%d.%m.%Y')}."
+                f"срок {obligation.due_date.strftime('%d.%m.%Y')}; "
+                f"получатель: {obligation.recipient_name}; {period}."
             )
             label.setObjectName("detailText")
             label.setWordWrap(True)
@@ -1426,6 +1654,7 @@ class MainWindow(QMainWindow):
 
             QFrame#chartCard,
             QFrame#paymentsCard,
+            QFrame#taxCalendarCard,
             QFrame#historyPanel,
             QFrame#historyDetailHeader {
                 background-color: #151c2f;
@@ -1436,19 +1665,43 @@ class MainWindow(QMainWindow):
             QLabel#paymentTitle {
                 color: #e2e8f0;
                 font-size: 14px;
+                font-weight: 600;
+            }
+
+            QLabel#paymentDate,
+            QLabel#paymentDetails,
+            QLabel#paymentBasis,
+            QLabel#paymentStatus {
+                color: #94a3b8;
+                font-size: 13px;
             }
 
             QLabel#paymentDate {
-                color: #94a3b8;
-                font-size: 13px;
                 min-width: 90px;
             }
 
-            QLabel#paymentAmount {
+            QLabel#paymentAmount,
+            QLabel#receiptAmount,
+            QLabel#taxCalendarAmount {
                 color: #f8fafc;
                 font-size: 14px;
                 font-weight: 600;
                 min-width: 120px;
+            }
+
+            QLabel#receiptAmount {
+                color: #5eead4;
+            }
+
+            QLabel#taxCalendarAmount {
+                color: #fde68a;
+            }
+
+            QLabel#overdueDate,
+            QLabel#overdueStatus {
+                color: #fb7185;
+                font-size: 13px;
+                font-weight: 600;
             }
 
             QFrame#paymentSeparator {
@@ -1542,6 +1795,76 @@ def _dataset_label(dataset: DatasetKind) -> str:
         DatasetKind.PAYMENT_CALENDAR: "платёжный календарь",
         DatasetKind.BANK_TRANSACTIONS: "банковские операции",
     }[dataset]
+
+
+def _is_tax_event(event: FinancialEvent) -> bool:
+    return (
+        event.counterparty is not None
+        and event.counterparty.kind is CounterpartyKind.TAX_AUTHORITY
+    ) or (event.category or "").startswith("tax")
+
+
+def _event_basis_text(event: FinancialEvent) -> str:
+    parts: list[str] = []
+    if event.payment_basis is not None:
+        document_types = {
+            "invoice": "Счёт",
+            "delivery_note": "Накладная",
+            "contract": "Договор",
+            "payroll_register": "Расчётная ведомость",
+            "tax_notice": "Налоговое обязательство",
+        }
+        document_type = document_types.get(
+            event.payment_basis.document_type,
+            event.payment_basis.document_type,
+        )
+        parts.append(
+            f"{document_type} №{event.payment_basis.document_number} "
+            f"от {event.payment_basis.document_date.strftime('%d.%m.%Y')}"
+        )
+        if event.payment_basis.description:
+            parts.append(event.payment_basis.description)
+    else:
+        parts.append("Документ-основание не указан")
+    if event.period_start is not None or event.period_end is not None:
+        parts.append(_period_text(event.period_start, event.period_end))
+    return " · ".join(parts)
+
+
+def _period_text(period_start: date | None, period_end: date | None) -> str:
+    if period_start is None and period_end is None:
+        return "Период не указан"
+    if period_start is None or period_end is None:
+        return "Период указан не полностью"
+    return (
+        f"Период: {period_start.strftime('%d.%m.%Y')}–"
+        f"{period_end.strftime('%d.%m.%Y')}"
+    )
+
+
+def _event_status_text(event: FinancialEvent, *, as_of: date) -> str:
+    if (
+        event.status is FinancialEventStatus.SETTLED
+        or event.settled_amount >= event.amount
+    ):
+        return "Оплачено"
+    if event.settled_amount > Decimal("0.00"):
+        return (
+            "Частично оплачено: "
+            f"{format_money(event.settled_amount, event.currency)}"
+        )
+    if event.due_date < as_of:
+        return "Просрочено"
+    if event.status is FinancialEventStatus.CONFIRMED:
+        return "Подтверждено"
+    return "Запланировано"
+
+
+def _add_separator(layout: QVBoxLayout, object_name: str) -> None:
+    separator = QFrame()
+    separator.setObjectName(object_name)
+    separator.setFrameShape(QFrame.Shape.HLine)
+    layout.addWidget(separator)
 
 
 def _format_local_datetime(value: datetime) -> str:

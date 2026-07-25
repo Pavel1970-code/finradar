@@ -34,6 +34,15 @@ class FinancialEventStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class CounterpartyKind(str, Enum):
+    CUSTOMER = "customer"
+    SUPPLIER = "supplier"
+    LANDLORD = "landlord"
+    EMPLOYEES = "employees"
+    TAX_AUTHORITY = "tax_authority"
+    OTHER = "other"
+
+
 @dataclass(frozen=True, slots=True)
 class CompanyProfile:
     external_id: str
@@ -81,6 +90,21 @@ class IntegrationReference:
 
 
 @dataclass(frozen=True, slots=True)
+class CounterpartyReference:
+    external_id: str
+    name: str
+    kind: CounterpartyKind
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentBasis:
+    document_type: str
+    document_number: str
+    document_date: date
+    description: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class FinancialEvent:
     external_id: str
     title: str
@@ -98,6 +122,11 @@ class FinancialEvent:
     account_external_id: str | None = None
     source_reference: str = ""
     bank_transaction_id: str | None = None
+    counterparty: CounterpartyReference | None = None
+    payment_purpose: str = ""
+    payment_basis: PaymentBasis | None = None
+    period_start: date | None = None
+    period_end: date | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -137,7 +137,7 @@ def analyze_financial_risk(
         converted
         for event in snapshot.events
         if event.obligation_key not in reconciled_keys
-        if (converted := _to_forecast_event(event)) is not None
+        if (converted := _to_forecast_event(event, as_of=as_of)) is not None
     )
     forecast_events = base_events + tuple(fiscal_events) + tuple(base_consequence_events)
     stress_forecast_events = (
@@ -169,7 +169,7 @@ def analyze_financial_risk(
     )
 
 
-def _to_forecast_event(event: FinancialEvent) -> ForecastEvent | None:
+def _to_forecast_event(event: FinancialEvent, *, as_of: date) -> ForecastEvent | None:
     if event.kind is not FinancialEventKind.PLANNED or event.status not in {
         FinancialEventStatus.PLANNED,
         FinancialEventStatus.CONFIRMED,
@@ -179,7 +179,7 @@ def _to_forecast_event(event: FinancialEvent) -> ForecastEvent | None:
     if outstanding == Decimal("0.00"):
         return None
     return ForecastEvent(
-        due_date=event.due_date,
+        due_date=max(event.due_date, as_of),
         amount=outstanding,
         is_inflow=event.direction is FinancialDirection.INFLOW,
         reference=event.external_id,

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "scenario_id": "base_cash_gap",
-  "scenario_version": 1,
-  "payload_sha256": "f6eea63b23732844d048b02b7d3adb919759915f96c607ce072d017811c016e5",
+  "scenario_version": 2,
+  "payload_sha256": "22857960ca397e3489c11a9128835258400191ac12cded66889c9f99011bca4a",
   "payload": {
     "title": "Базовый кассовый разрыв — вымышленный сценарий",
     "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
@@ -10,7 +10,7 @@
     "horizon_days": 30,
     "stress_overdue_days": 5,
     "accounting": {
-      "source_system": "demo-accounting:base_cash_gap:v1",
+      "source_system": "demo-accounting:base_cash_gap:v2",
       "captured_at": "2026-07-18T09:00:00+04:00",
       "available_datasets": [
         "company_profile",
@@ -77,46 +77,138 @@
         },
         {
           "external_id": "fictional-planned-receipt-001",
-          "title": "Ожидаемая оплата от вымышленного покупателя",
-          "amount": "1500.00",
+          "title": "Оплата от покупателя за партию товара",
+          "amount": "2500.00",
           "currency": "GEL",
-          "due_date": "2026-07-19",
+          "due_date": "2026-07-25",
           "direction": "inflow",
           "kind": "planned",
           "status": "confirmed",
           "category": "receivables",
           "account_external_id": "fictional-operating-account",
-          "source_reference": "fictional-payment-calendar:001"
+          "source_reference": "fictional-payment-calendar:001",
+          "counterparty": {
+            "external_id": "fictional-customer-petya",
+            "name": "ООО «Демо Покупатель Петя»",
+            "kind": "customer"
+          },
+          "payment_purpose": "Оплата партии товара от 01.07.2026",
+          "payment_basis": {
+            "document_type": "invoice",
+            "document_number": "ДЕМО-СЧ-101",
+            "document_date": "2026-07-01",
+            "description": "Счёт покупателю за вымышленную партию товара"
+          }
         },
         {
           "external_id": "fictional-supplier-payment-001",
-          "title": "Оплата вымышленному поставщику",
-          "amount": "4200.00",
+          "title": "Оплата поставщику за партию товара",
+          "amount": "3800.00",
           "currency": "GEL",
-          "due_date": "2026-07-20",
+          "due_date": "2026-07-21",
           "direction": "outflow",
           "kind": "planned",
           "status": "confirmed",
           "category": "suppliers",
           "account_external_id": "fictional-operating-account",
-          "source_reference": "fictional-payment-calendar:002"
+          "source_reference": "fictional-payment-calendar:002",
+          "counterparty": {
+            "external_id": "fictional-supplier-vasya",
+            "name": "ООО «Демо Поставщик Вася»",
+            "kind": "supplier"
+          },
+          "payment_purpose": "Оплата партии товара от 01.07.2026",
+          "payment_basis": {
+            "document_type": "delivery_note",
+            "document_number": "ДЕМО-НК-201",
+            "document_date": "2026-07-01",
+            "description": "Накладная на вымышленную партию товара"
+          }
         },
         {
           "external_id": "fictional-payroll-001",
-          "title": "Вымышленная выплата заработной платы",
+          "title": "Заработная плата за июль",
           "amount": "3000.00",
           "currency": "GEL",
-          "due_date": "2026-07-23",
+          "due_date": "2026-07-31",
           "direction": "outflow",
           "kind": "planned",
           "status": "confirmed",
           "category": "payroll",
           "account_external_id": "fictional-operating-account",
-          "source_reference": "fictional-payment-calendar:003"
+          "source_reference": "fictional-payment-calendar:003",
+          "counterparty": {
+            "external_id": "fictional-employees-group",
+            "name": "Сотрудники — агрегированная выплата",
+            "kind": "employees"
+          },
+          "payment_purpose": "Заработная плата за июль 2026 года",
+          "payment_basis": {
+            "document_type": "payroll_register",
+            "document_number": "ДЕМО-ВЕД-07",
+            "document_date": "2026-07-18",
+            "description": "Агрегированная расчётная ведомость без персональных данных"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31"
+        },
+        {
+          "external_id": "fictional-property-tax-001",
+          "title": "Налог на имущество за первое полугодие",
+          "amount": "650.00",
+          "currency": "GEL",
+          "due_date": "2026-07-30",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "tax_property",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-payment-calendar:004",
+          "counterparty": {
+            "external_id": "fictional-tax-authority",
+            "name": "Вымышленное налоговое казначейство",
+            "kind": "tax_authority"
+          },
+          "payment_purpose": "Налог на имущество за первое полугодие 2026 года",
+          "payment_basis": {
+            "document_type": "tax_notice",
+            "document_number": "ДЕМО-НАЛ-ИМ-01",
+            "document_date": "2026-07-15",
+            "description": "Вымышленное налоговое уведомление"
+          },
+          "period_start": "2026-01-01",
+          "period_end": "2026-06-30"
+        },
+        {
+          "external_id": "fictional-rent-001",
+          "title": "Аренда офиса за август",
+          "amount": "1200.00",
+          "currency": "GEL",
+          "due_date": "2026-08-01",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "rent",
+          "account_external_id": "fictional-operating-account",
+          "source_reference": "fictional-payment-calendar:005",
+          "counterparty": {
+            "external_id": "fictional-landlord",
+            "name": "ООО «Демо Арендодатель»",
+            "kind": "landlord"
+          },
+          "payment_purpose": "Аренда офиса за август 2026 года",
+          "payment_basis": {
+            "document_type": "contract",
+            "document_number": "ДЕМО-АР-01",
+            "document_date": "2026-01-10",
+            "description": "Вымышленный договор аренды офиса"
+          },
+          "period_start": "2026-08-01",
+          "period_end": "2026-08-31"
         }
       ],
       "source_issues": [],
-      "source_cursor": "demo:base_cash_gap:v1"
+      "source_cursor": "demo:base_cash_gap:v2"
     },
     "bank": {
       "source_system": "demo-bank:base_cash_gap:v1",
@@ -170,8 +262,8 @@
     "fiscal_rules": [
       {
         "rule_id": "fictional-base-tax",
-        "version": 1,
-        "title": "Вымышленный налог с расчётной базы",
+        "version": 2,
+        "title": "НДС за расчётный период — вымышленный",
         "jurisdiction": "XX-DEMO",
         "tax_regimes": ["fictional-base-regime"],
         "effective_from": "2026-01-01",
@@ -180,7 +272,12 @@
         "rate": "0.05",
         "payment_days_after_period_end": 3,
         "obligation_category": "fictional_tax",
-        "source_reference": "fictional-public-document:base-tax:v1"
+        "source_reference": "fictional-public-document:base-tax:v2",
+        "payment_recipient": {
+          "external_id": "fictional-tax-authority",
+          "name": "Вымышленное налоговое казначейство",
+          "kind": "tax_authority"
+        }
       }
     ],
     "penalty_rules": [
@@ -204,12 +301,12 @@
     "expected": {
       "readiness_status": "ready",
       "opening_balance": "5000.00",
-      "closing_balance": "-1700.00",
-      "minimum_balance": "-1700.00",
-      "first_gap_date": "2026-07-23",
-      "required_funding": "1700.00",
+      "closing_balance": "-2150.00",
+      "minimum_balance": "-2150.00",
+      "first_gap_date": "2026-07-31",
+      "required_funding": "2150.00",
       "fiscal_obligation_amount": "1000.00",
-      "stress_minimum_balance": "-1705.00",
+      "stress_minimum_balance": "-2155.00",
       "bank_matched_count": 2,
       "bank_missing_count": 0
     }

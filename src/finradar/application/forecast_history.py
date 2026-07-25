@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from finradar.domain.forecast import ForecastEvent, ForecastResult
+from finradar.domain.financial_snapshot import FinancialEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,9 @@ class HistoricalFiscalObligation:
     outstanding_amount: Decimal
     currency: str
     due_date: date
+    recipient_name: str
+    period_start: date | None
+    period_end: date | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +53,7 @@ class ForecastHistoryDetails:
     stress_forecast: ForecastResult
     forecast_events: tuple[ForecastEvent, ...]
     stress_forecast_events: tuple[ForecastEvent, ...]
+    payment_events: tuple[FinancialEvent, ...]
     obligations: tuple[HistoricalFiscalObligation, ...]
     consequences: tuple[HistoricalFiscalConsequence, ...]
 

@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -10,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
 from finradar.infrastructure.database import migrate_database
+from finradar.infrastructure.fiscal_rule_codec import decode_rule
 from finradar.infrastructure.fiscal_rule_registry import SqlAlchemyFiscalRuleRegistry
 
 
@@ -104,3 +106,30 @@ def test_only_candidate_can_be_registered(tmp_path: Path) -> None:
             reason="Invalid input",
         )
 
+
+def test_version_one_rule_without_recipient_remains_readable() -> None:
+    content = json.dumps(
+        {
+            "schema_version": 1,
+            "rule_type": "percentage_obligation",
+            "definition": {
+                "rule_id": "legacy-tax",
+                "version": 1,
+                "title": "Legacy fictional tax",
+                "jurisdiction": "XX",
+                "tax_regimes": ["fictional"],
+                "effective_from": "2026-01-01",
+                "effective_to": None,
+                "base_metric_code": "legacy_base",
+                "rate": "0.05",
+                "payment_days_after_period_end": 3,
+                "obligation_category": "fictional_tax",
+                "source_reference": "legacy-source",
+            },
+        }
+    )
+
+    restored = decode_rule(content, status=FiscalRuleStatus.ACTIVE)
+
+    assert isinstance(restored, PercentageFiscalRule)
+    assert restored.payment_recipient is None

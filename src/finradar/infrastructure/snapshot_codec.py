@@ -7,6 +7,8 @@ from finradar.domain.financial_snapshot import (
     AccountBalance,
     AccountingMetric,
     CompanyProfile,
+    CounterpartyKind,
+    CounterpartyReference,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
@@ -14,13 +16,14 @@ from finradar.domain.financial_snapshot import (
     FinancialEventStatus,
     FinancialSnapshot,
     IntegrationReference,
+    PaymentBasis,
     SourceDataIssue,
     SourceIssueSeverity,
 )
 
 
-SCHEMA_VERSION = 3
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3}
+SCHEMA_VERSION = 4
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4}
 
 
 def encode_snapshot(snapshot: FinancialSnapshot) -> str:
@@ -109,6 +112,19 @@ def decode_snapshot(content_json: str) -> FinancialSnapshot:
                 account_external_id=item["account_external_id"],
                 source_reference=item.get("source_reference", ""),
                 bank_transaction_id=item.get("bank_transaction_id"),
+                counterparty=_counterparty_from_dict(item.get("counterparty")),
+                payment_purpose=item.get("payment_purpose", ""),
+                payment_basis=_payment_basis_from_dict(item.get("payment_basis")),
+                period_start=(
+                    date.fromisoformat(item["period_start"])
+                    if item.get("period_start") is not None
+                    else None
+                ),
+                period_end=(
+                    date.fromisoformat(item["period_end"])
+                    if item.get("period_end") is not None
+                    else None
+                ),
             )
             for item in payload["events"]
         ),
@@ -187,7 +203,64 @@ def _event_to_dict(event: FinancialEvent) -> dict[str, str | None]:
         "account_external_id": event.account_external_id,
         "source_reference": event.source_reference,
         "bank_transaction_id": event.bank_transaction_id,
+        "counterparty": _counterparty_to_dict(event.counterparty),
+        "payment_purpose": event.payment_purpose,
+        "payment_basis": _payment_basis_to_dict(event.payment_basis),
+        "period_start": (
+            event.period_start.isoformat() if event.period_start is not None else None
+        ),
+        "period_end": (
+            event.period_end.isoformat() if event.period_end is not None else None
+        ),
     }
+
+
+def _counterparty_to_dict(
+    counterparty: CounterpartyReference | None,
+) -> dict[str, str] | None:
+    if counterparty is None:
+        return None
+    return {
+        "external_id": counterparty.external_id,
+        "name": counterparty.name,
+        "kind": counterparty.kind.value,
+    }
+
+
+def _counterparty_from_dict(value: object) -> CounterpartyReference | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Financial event counterparty must be an object.")
+    return CounterpartyReference(
+        external_id=value["external_id"],
+        name=value["name"],
+        kind=CounterpartyKind(value["kind"]),
+    )
+
+
+def _payment_basis_to_dict(basis: PaymentBasis | None) -> dict[str, str] | None:
+    if basis is None:
+        return None
+    return {
+        "document_type": basis.document_type,
+        "document_number": basis.document_number,
+        "document_date": basis.document_date.isoformat(),
+        "description": basis.description,
+    }
+
+
+def _payment_basis_from_dict(value: object) -> PaymentBasis | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Financial event payment basis must be an object.")
+    return PaymentBasis(
+        document_type=value["document_type"],
+        document_number=value["document_number"],
+        document_date=date.fromisoformat(value["document_date"]),
+        description=value.get("description", ""),
+    )
 
 
 def _source_issue_to_dict(issue: SourceDataIssue) -> dict[str, str]:

@@ -25,6 +25,9 @@ class FiscalObligationView:
     outstanding_amount: Decimal
     currency: str
     due_date: date
+    recipient_name: str
+    period_start: date | None
+    period_end: date | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +84,13 @@ def build_forecast_view_model(outcome: SynchronizationOutcome) -> ForecastViewMo
             ),
             currency=obligation.currency,
             due_date=obligation.due_date,
+            recipient_name=(
+                obligation.payment_recipient.name
+                if obligation.payment_recipient is not None
+                else "Налоговый орган"
+            ),
+            period_start=obligation.period_start,
+            period_end=obligation.period_end,
         )
         for analysis in outcome.rule_analyses
         if (obligation := analysis.calculation.obligation) is not None
@@ -165,6 +175,11 @@ def _issue_text(code: str, message: str, impact: str) -> tuple[str, str]:
             "Источник не передал платёжный календарь.",
             "В прогнозе могут отсутствовать будущие поступления и платежи.",
         ),
+        "payment_counterparty_missing": (message, impact),
+        "payment_basis_missing": (message, impact),
+        "payment_settlement_exceeds_amount": (message, impact),
+        "payment_period_incomplete": (message, impact),
+        "payment_period_inverted": (message, impact),
         "accounting_facts_unavailable": (
             "Источник не передал показатели для налогового анализа.",
             "Часть обязательств может остаться нерассчитанной.",

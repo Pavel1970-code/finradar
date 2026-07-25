@@ -5,6 +5,10 @@ from decimal import Decimal
 from typing import TypeAlias
 
 from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
+from finradar.domain.financial_snapshot import (
+    CounterpartyKind,
+    CounterpartyReference,
+)
 from finradar.domain.fiscal_consequences import (
     FineRule,
     LatePaymentPenaltyRule,
@@ -14,7 +18,8 @@ from finradar.domain.fiscal_consequences import (
 
 
 RuleDefinition: TypeAlias = PercentageFiscalRule | LatePaymentPenaltyRule | FineRule
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 
 
 def encode_rule(rule: RuleDefinition) -> tuple[str, str]:
@@ -35,6 +40,15 @@ def encode_rule(rule: RuleDefinition) -> tuple[str, str]:
             "payment_days_after_period_end": rule.payment_days_after_period_end,
             "obligation_category": rule.obligation_category,
             "source_reference": rule.source_reference,
+            "payment_recipient": (
+                {
+                    "external_id": rule.payment_recipient.external_id,
+                    "name": rule.payment_recipient.name,
+                    "kind": rule.payment_recipient.kind.value,
+                }
+                if rule.payment_recipient is not None
+                else None
+            ),
         }
     elif isinstance(rule, LatePaymentPenaltyRule):
         rule_type = "late_payment_penalty"
@@ -93,7 +107,7 @@ def encode_rule(rule: RuleDefinition) -> tuple[str, str]:
 
 def decode_rule(content_json: str, *, status: FiscalRuleStatus) -> RuleDefinition:
     payload = json.loads(content_json)
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    if payload.get("schema_version") not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError("Unsupported fiscal rule schema version.")
     rule_type = payload["rule_type"]
     item = payload["definition"]
@@ -116,6 +130,15 @@ def decode_rule(content_json: str, *, status: FiscalRuleStatus) -> RuleDefinitio
             payment_days_after_period_end=item["payment_days_after_period_end"],
             obligation_category=item["obligation_category"],
             source_reference=item["source_reference"],
+            payment_recipient=(
+                CounterpartyReference(
+                    external_id=item["payment_recipient"]["external_id"],
+                    name=item["payment_recipient"]["name"],
+                    kind=CounterpartyKind(item["payment_recipient"]["kind"]),
+                )
+                if item.get("payment_recipient") is not None
+                else None
+            ),
             status=status,
         )
     if rule_type == "late_payment_penalty":
@@ -173,4 +196,3 @@ def _optional_decimal(value: Decimal | None) -> str | None:
 
 def _decimal_or_none(value: str | None) -> Decimal | None:
     return Decimal(value) if value is not None else None
-

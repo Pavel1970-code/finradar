@@ -60,6 +60,26 @@ def validate_accounting_snapshot(
         _finite(event.settled_amount, "Settled amount")
         if event.amount < Decimal("0") or event.settled_amount < Decimal("0"):
             raise ConnectorContractError("Financial event amounts cannot be negative.")
+        if event.counterparty is not None:
+            _bounded_text(
+                event.counterparty.external_id,
+                "Counterparty identifier",
+                maximum=200,
+            )
+            _bounded_text(event.counterparty.name, "Counterparty name", maximum=200)
+        if event.payment_purpose:
+            _bounded_text(event.payment_purpose, "Payment purpose", maximum=500)
+        if event.payment_basis is not None:
+            _bounded_text(
+                event.payment_basis.document_type,
+                "Payment document type",
+                maximum=100,
+            )
+            _bounded_text(
+                event.payment_basis.document_number,
+                "Payment document number",
+                maximum=100,
+            )
     if snapshot.source_cursor is not None and (
         not snapshot.source_cursor.strip() or len(snapshot.source_cursor) > 500
     ):
@@ -108,3 +128,8 @@ def _unique(values: Iterable[str], label: str) -> None:
         if value in seen:
             raise ConnectorContractError(f"Duplicate {label} identifier: {value}.")
         seen.add(value)
+
+
+def _bounded_text(value: str, label: str, *, maximum: int) -> None:
+    if not value.strip() or len(value.strip()) > maximum:
+        raise ConnectorContractError(f"{label} is invalid.")

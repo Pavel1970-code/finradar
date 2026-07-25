@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
+from PySide6.QtWidgets import QComboBox, QFrame, QLabel, QPushButton
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
@@ -68,7 +68,7 @@ def _in_memory_outcome():
 def test_bundled_base_scenario_is_versioned_and_checksummed(tmp_path: Path) -> None:
     scenario = DemoScenarioRepository().load("base_cash_gap")
 
-    assert scenario.version == 1
+    assert scenario.version == 2
     assert scenario.horizon_days == 30
     assert "вымышлен" in scenario.fictional_notice.lower()
 
@@ -137,6 +137,15 @@ def test_base_scenario_matches_golden_result_and_records_audit_history(
     assert first.fiscal_analysis_run_id is not None
     assert second.forecast == first.forecast
     assert second.synchronization_run_id != first.synchronization_run_id
+    receivable = next(
+        event
+        for event in first.snapshot.events
+        if event.external_id == "fictional-planned-receipt-001"
+    )
+    assert receivable.counterparty is not None
+    assert receivable.counterparty.name == "ООО «Демо Покупатель Петя»"
+    assert receivable.payment_basis is not None
+    assert receivable.payment_basis.document_date == date(2026, 7, 1)
 
 
 @pytest.mark.parametrize(
@@ -353,6 +362,8 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
     texts = "\n".join(label.text() for label in window.findChildren(QLabel))
     assert "последние 5 дней" in texts
     assert "отсутствуют банковские операции: 1" in texts
+    assert "не указан контрагент" in texts
+    assert "не указан документ-основание" in texts
     assert "Запись источника" not in texts
     assert "demo-accounting" not in texts
 
@@ -379,6 +390,44 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
     assert window.findChild(BalanceChart, "balanceChart").property(
         "minimumBalance"
     ) == "-1709.00"
+    assert len(window.findChildren(QFrame, "taxCalendarRow")) == 1
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "Частично оплачено: 500.00 GEL" in texts
+
+
+def test_base_calendar_shows_debtors_payees_documents_and_tax_details(qtbot) -> None:
+    scenario = DemoScenarioRepository().load("base_cash_gap")
+    facade = ForecastApplicationFacade(
+        ScenarioAccountingConnector(scenario),
+        configuration=ForecastRunConfiguration(
+            as_of=scenario.as_of,
+            horizon_days=scenario.horizon_days,
+            stress_overdue_days=scenario.stress_overdue_days,
+        ),
+        rule_provider=lambda: scenario.fiscal_rules,
+        bank_connector=ScenarioBankConnector(scenario),
+    )
+    window = MainWindow(
+        analysis=facade.run(),
+        horizon_days=scenario.horizon_days,
+    )
+    qtbot.addWidget(window)
+    window.show()
+
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+
+    assert "Ожидаемые поступления" in texts
+    assert "Предстоящие выплаты" in texts
+    assert "Налоговый календарь" in texts
+    assert "ООО «Демо Покупатель Петя»" in texts
+    assert "ООО «Демо Поставщик Вася»" in texts
+    assert "ООО «Демо Арендодатель»" in texts
+    assert "ДЕМО-НК-201" in texts
+    assert "НДС за расчётный период" in texts
+    assert "Налог на имущество" in texts
+    assert window.findChildren(QLabel, "receiptAmount")
+    assert window.findChildren(QLabel, "paymentAmount")
+    assert window.findChildren(QLabel, "taxCalendarAmount")
 
 
 def test_history_persists_and_opens_without_recalculation(
@@ -396,7 +445,7 @@ def test_history_persists_and_opens_without_recalculation(
     assert len(items) == 1
     assert items[0].available
     assert items[0].scenario_id == "base_cash_gap"
-    assert items[0].scenario_version == 1
+    assert items[0].scenario_version == 2
     assert items[0].required_funding == outcome.forecast.required_funding
 
     calls = 0
@@ -428,6 +477,8 @@ def test_history_persists_and_opens_without_recalculation(
     texts = "\n".join(label.text() for label in window.findChildren(QLabel))
     assert "Финансовый расчёт повторно не выполнялся" in texts
     assert "ООО «Демо Орбита»" in texts
+    assert "ООО «Демо Покупатель Петя»" in texts
+    assert "ДЕМО-СЧ-101" in texts
 
 
 def test_history_marks_failed_integrity_check_as_unavailable(tmp_path: Path) -> None:

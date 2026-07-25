@@ -5,10 +5,16 @@ from decimal import Decimal
 from finradar.domain.financial_snapshot import (
     AccountBalance,
     CompanyProfile,
+    CounterpartyKind,
+    CounterpartyReference,
     DatasetKind,
+    FinancialDirection,
+    FinancialEvent,
+    FinancialEventKind,
     FinancialEventStatus,
     FinancialSnapshot,
     IntegrationReference,
+    PaymentBasis,
     SourceDataIssue,
     SourceIssueSeverity,
 )
@@ -52,7 +58,7 @@ def test_version_one_snapshot_remains_readable() -> None:
     assert snapshot.events[0].status is FinancialEventStatus.PLANNED
 
 
-def test_version_three_snapshot_preserves_integration_provenance_and_issues() -> None:
+def test_version_four_snapshot_preserves_payment_details_and_provenance() -> None:
     snapshot = FinancialSnapshot(
         source_system="one-c",
         captured_at=datetime(2026, 7, 19, tzinfo=timezone.utc),
@@ -71,6 +77,30 @@ def test_version_three_snapshot_preserves_integration_provenance_and_issues() ->
                 currency="GEL",
                 amount=Decimal("100.00"),
                 balance_date=date(2026, 7, 19),
+            ),
+        ),
+        events=(
+            FinancialEvent(
+                external_id="payment-1",
+                title="Supplier payment",
+                amount=Decimal("75.00"),
+                currency="GEL",
+                due_date=date(2026, 7, 21),
+                direction=FinancialDirection.OUTFLOW,
+                kind=FinancialEventKind.PLANNED,
+                counterparty=CounterpartyReference(
+                    external_id="supplier-1",
+                    name="Fictional supplier",
+                    kind=CounterpartyKind.SUPPLIER,
+                ),
+                payment_purpose="Fictional delivery",
+                payment_basis=PaymentBasis(
+                    document_type="delivery_note",
+                    document_number="DEMO-1",
+                    document_date=date(2026, 7, 1),
+                ),
+                period_start=date(2026, 7, 1),
+                period_end=date(2026, 7, 15),
             ),
         ),
         source_issues=(

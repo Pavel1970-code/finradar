@@ -1,6 +1,6 @@
 # FinRadar implementation status
 
-Updated: 2026-07-20
+Updated: 2026-07-25
 
 ## Product direction
 
@@ -156,9 +156,21 @@ calculate amounts.
 - Additive migrations `0004` through `0007`; the prototype database is at
   `0007_integration_sdk` with its existing company and eight cash-flow records
   preserved.
-- The one-click dashboard now includes a dependency-free 30-day daily-balance
-  chart, a bounded list of upcoming outflows, the latest successful run time,
-  and synchronized primary/stress presentation.
+- The one-click dashboard includes a dependency-free 30-day daily-balance
+  chart, the latest successful run time, and synchronized primary/stress
+  presentation.
+- Payment-calendar events now carry optional structured counterparty, payment
+  purpose, document basis, and accounting/tax period data. Snapshot schema v4
+  writes these fields while retaining read support for schema versions 1–3.
+- The dashboard separates expected receipts, non-tax payables, and a tax
+  calendar. Rows show the payee/debtor, basis document, period, outstanding
+  amount, and a derived planned, confirmed, partial, or overdue state.
+- Missing counterparty and basis information appears as a non-blocking
+  data-quality limitation. Settlements above the obligation and inverted
+  periods block the forecast instead of being silently normalized.
+- Unsettled overdue ordinary payments enter the first forecast day. A linked
+  accounting tax entry suppresses a duplicate generated tax row in the
+  calendar.
 - The desktop UI lists the 20 latest local forecasts after restart. Opening an
   entry verifies both the analysis and source-snapshot SHA-256 hashes and reads
   the stored forecast, events, obligations, and consequences without rerunning
@@ -174,7 +186,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 114 tests passed, including Ed25519 tamper rejection,
+Latest result: Ruff passed; 119 tests passed, including Ed25519 tamper rejection,
 key rotation and revocation, package expiry, quarantine, replay protection,
 immutable import audit, archive-integrity verification, distribution manifests
 and wheel-boundary verification, the regulatory trust

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "scenario_id": "fiscal_change_and_delay",
-  "scenario_version": 1,
-  "payload_sha256": "d100005b287ca1dbef5f1ae4f02038d8cefec4f8264b81563c17019eb0a8ad22",
+  "scenario_version": 2,
+  "payload_sha256": "5bc8b40294bdeac558319e5e4b306f23d3ac3f6963db65cf6bcb41cf2b2b711d",
   "payload": {
     "title": "Изменение ставки и просрочка — вымышленный сценарий",
     "fictional_notice": "Все компании, операции, ставки и обязательства в этом сценарии вымышлены и не являются налоговой консультацией.",
@@ -10,7 +10,7 @@
     "horizon_days": 30,
     "stress_overdue_days": 5,
     "accounting": {
-      "source_system": "demo-accounting:fiscal_change_and_delay:v1",
+      "source_system": "demo-accounting:fiscal_change_and_delay:v2",
       "captured_at": "2026-07-18T09:00:00+04:00",
       "available_datasets": ["company_profile", "account_balances", "accounting_facts", "payment_calendar"],
       "company": {
@@ -53,7 +53,21 @@
           "obligation_key": "fictional-change-tax:2026-07-01:2026-07-10",
           "category": "fictional_tax",
           "account_external_id": "fictional-change-account",
-          "source_reference": "fictional-ledger:change:partial-tax"
+          "source_reference": "fictional-ledger:change:partial-tax",
+          "counterparty": {
+            "external_id": "fictional-tax-authority",
+            "name": "Вымышленное налоговое казначейство",
+            "kind": "tax_authority"
+          },
+          "payment_purpose": "Частичная оплата НДС за расчётный период",
+          "payment_basis": {
+            "document_type": "tax_notice",
+            "document_number": "ДЕМО-НДС-07",
+            "document_date": "2026-07-11",
+            "description": "Вымышленное налоговое обязательство"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-10"
         },
         {
           "external_id": "fictional-change-supplier",
@@ -66,11 +80,23 @@
           "status": "confirmed",
           "category": "suppliers",
           "account_external_id": "fictional-change-account",
-          "source_reference": "fictional-calendar:change:1"
+          "source_reference": "fictional-calendar:change:1",
+          "counterparty": {
+            "external_id": "fictional-change-supplier",
+            "name": "ООО «Демо Поставщик Запад»",
+            "kind": "supplier"
+          },
+          "payment_purpose": "Оплата поставки расходных материалов",
+          "payment_basis": {
+            "document_type": "delivery_note",
+            "document_number": "ДЕМО-НК-301",
+            "document_date": "2026-07-05",
+            "description": "Вымышленная накладная поставщика"
+          }
         },
         {
           "external_id": "fictional-change-receipt",
-          "title": "Вымышленное поступление",
+          "title": "Оплата от вымышленного покупателя",
           "amount": "500.00",
           "currency": "GEL",
           "due_date": "2026-07-20",
@@ -79,11 +105,23 @@
           "status": "confirmed",
           "category": "receivables",
           "account_external_id": "fictional-change-account",
-          "source_reference": "fictional-calendar:change:2"
+          "source_reference": "fictional-calendar:change:2",
+          "counterparty": {
+            "external_id": "fictional-change-customer",
+            "name": "ООО «Демо Покупатель Восток»",
+            "kind": "customer"
+          },
+          "payment_purpose": "Оплата ранее поставленного товара",
+          "payment_basis": {
+            "document_type": "invoice",
+            "document_number": "ДЕМО-СЧ-302",
+            "document_date": "2026-07-08",
+            "description": "Вымышленный счёт покупателю"
+          }
         },
         {
           "external_id": "fictional-change-payroll",
-          "title": "Вымышленная выплата заработной платы",
+          "title": "Агрегированная выплата заработной платы",
           "amount": "1500.00",
           "currency": "GEL",
           "due_date": "2026-07-22",
@@ -92,11 +130,25 @@
           "status": "confirmed",
           "category": "payroll",
           "account_external_id": "fictional-change-account",
-          "source_reference": "fictional-calendar:change:3"
+          "source_reference": "fictional-calendar:change:3",
+          "counterparty": {
+            "external_id": "fictional-change-employees",
+            "name": "Сотрудники — агрегированная выплата",
+            "kind": "employees"
+          },
+          "payment_purpose": "Заработная плата за первую половину июля",
+          "payment_basis": {
+            "document_type": "payroll_register",
+            "document_number": "ДЕМО-ВЕД-07-1",
+            "document_date": "2026-07-17",
+            "description": "Вымышленная агрегированная ведомость"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-15"
         }
       ],
       "source_issues": [],
-      "source_cursor": "demo:fiscal_change_and_delay:v1"
+      "source_cursor": "demo:fiscal_change_and_delay:v2"
     },
     "bank": {
       "source_system": "demo-bank:fiscal_change_and_delay:v1",
@@ -119,8 +171,8 @@
     "fiscal_rules": [
       {
         "rule_id": "fictional-change-tax",
-        "version": 2,
-        "title": "Вымышленный налог после изменения ставки",
+        "version": 3,
+        "title": "НДС после изменения ставки — вымышленный",
         "jurisdiction": "XX-DEMO",
         "tax_regimes": ["fictional-change-regime"],
         "effective_from": "2026-07-01",
@@ -129,7 +181,12 @@
         "rate": "0.07",
         "payment_days_after_period_end": 3,
         "obligation_category": "fictional_tax",
-        "source_reference": "fictional-public-document:change-tax:v2"
+        "source_reference": "fictional-public-document:change-tax:v3",
+        "payment_recipient": {
+          "external_id": "fictional-tax-authority",
+          "name": "Вымышленное налоговое казначейство",
+          "kind": "tax_authority"
+        }
       }
     ],
     "penalty_rules": [
@@ -160,7 +217,7 @@
       {
         "rule_id": "fictional-change-tax",
         "version": 1,
-        "title": "Вымышленный налог до изменения ставки",
+        "title": "НДС до изменения ставки — вымышленный",
         "jurisdiction": "XX-DEMO",
         "tax_regimes": ["fictional-change-regime"],
         "effective_from": "2026-01-01",
@@ -169,7 +226,12 @@
         "rate": "0.05",
         "payment_days_after_period_end": 3,
         "obligation_category": "fictional_tax",
-        "source_reference": "fictional-public-document:change-tax:v1"
+        "source_reference": "fictional-public-document:change-tax:v1",
+        "payment_recipient": {
+          "external_id": "fictional-tax-authority",
+          "name": "Вымышленное налоговое казначейство",
+          "kind": "tax_authority"
+        }
       }
     ],
     "baseline_penalty_rules": [

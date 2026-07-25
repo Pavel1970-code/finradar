@@ -432,3 +432,26 @@ def test_accounting_charge_is_reported_as_accrued_without_duplication() -> None:
         for event in result.forecast_events
         if event.reference == "accounting-penalty-1"
     ) == Decimal("12.00")
+
+
+def test_overdue_unsettled_supplier_payment_enters_first_forecast_day() -> None:
+    overdue = FinancialEvent(
+        external_id="overdue-supplier-1",
+        title="Overdue fictional supplier payment",
+        amount=Decimal("40.00"),
+        currency="GEL",
+        due_date=AS_OF - timedelta(days=2),
+        direction=FinancialDirection.OUTFLOW,
+        kind=FinancialEventKind.PLANNED,
+        status=FinancialEventStatus.CONFIRMED,
+    )
+
+    result = analyze_financial_risk(
+        make_snapshot(events=(overdue,), include_metric=False),
+        (),
+        as_of=AS_OF,
+        horizon_days=5,
+    )
+
+    assert result.forecast.points[0].outflow == Decimal("40.00")
+    assert result.forecast.closing_balance == Decimal("10.00")

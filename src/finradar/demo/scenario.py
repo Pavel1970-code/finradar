@@ -23,12 +23,15 @@ from finradar.domain.financial_snapshot import (
     AccountBalance,
     AccountingMetric,
     CompanyProfile,
+    CounterpartyKind,
+    CounterpartyReference,
     DatasetKind,
     FinancialDirection,
     FinancialEvent,
     FinancialEventKind,
     FinancialEventStatus,
     FinancialSnapshot,
+    PaymentBasis,
     SourceDataIssue,
     SourceIssueSeverity,
 )
@@ -79,6 +82,19 @@ class _MetricData(_ContractModel):
     source_reference: str = ""
 
 
+class _CounterpartyData(_ContractModel):
+    external_id: str
+    name: str
+    kind: CounterpartyKind
+
+
+class _PaymentBasisData(_ContractModel):
+    document_type: str
+    document_number: str
+    document_date: date
+    description: str = ""
+
+
 class _EventData(_ContractModel):
     external_id: str
     title: str
@@ -96,6 +112,11 @@ class _EventData(_ContractModel):
     account_external_id: str | None = None
     source_reference: str = ""
     bank_transaction_id: str | None = None
+    counterparty: _CounterpartyData | None = None
+    payment_purpose: str = ""
+    payment_basis: _PaymentBasisData | None = None
+    period_start: date | None = None
+    period_end: date | None = None
 
 
 class _IssueData(_ContractModel):
@@ -167,6 +188,7 @@ class _FiscalRuleData(_ContractModel):
     payment_days_after_period_end: int = Field(ge=0)
     obligation_category: str
     source_reference: str
+    payment_recipient: _CounterpartyData | None = None
 
 
 class _PenaltyPeriodData(_ContractModel):
@@ -356,7 +378,7 @@ def _to_domain(envelope: _ScenarioEnvelope) -> DemoScenario:
         ),
         balances=tuple(AccountBalance(**item.model_dump()) for item in accounting.balances),
         metrics=tuple(AccountingMetric(**item.model_dump()) for item in accounting.metrics),
-        events=tuple(FinancialEvent(**item.model_dump()) for item in accounting.events),
+        events=tuple(_event_to_domain(item) for item in accounting.events),
         source_issues=tuple(
             SourceDataIssue(**item.model_dump()) for item in accounting.source_issues
         ),
@@ -433,7 +455,12 @@ def _to_rule_set(
     return ActiveFiscalRuleSet(
         obligation_rules=tuple(
             PercentageFiscalRule(
-                **item.model_dump(),
+                **item.model_dump(exclude={"payment_recipient"}),
+                payment_recipient=(
+                    CounterpartyReference(**item.payment_recipient.model_dump())
+                    if item.payment_recipient is not None
+                    else None
+                ),
                 status=FiscalRuleStatus.ACTIVE,
             )
             for item in fiscal_rules
@@ -459,5 +486,22 @@ def _to_rule_set(
                 status=FiscalRuleStatus.ACTIVE,
             )
             for item in fine_rules
+        ),
+    )
+
+
+def _event_to_domain(item: _EventData) -> FinancialEvent:
+    values = item.model_dump(exclude={"counterparty", "payment_basis"})
+    return FinancialEvent(
+        **values,
+        counterparty=(
+            CounterpartyReference(**item.counterparty.model_dump())
+            if item.counterparty is not None
+            else None
+        ),
+        payment_basis=(
+            PaymentBasis(**item.payment_basis.model_dump())
+            if item.payment_basis is not None
+            else None
         ),
     )

@@ -80,6 +80,15 @@ def complete_extract() -> OneCExtract:
                 "account_external_id": "account-1",
                 "source_reference": "1c:payment-calendar:1",
                 "bank_transaction_id": "",
+                "counterparty_external_id": "supplier-1",
+                "counterparty_name": "Fictional supplier",
+                "counterparty_kind": "supplier",
+                "payment_purpose": "Payment for delivery",
+                "document_type": "delivery_note",
+                "document_number": "DELIVERY-1",
+                "document_date": "2026-07-01",
+                "period_start": "2026-07-01",
+                "period_end": "2026-07-15",
             },
         ),
         next_cursor="1c-cursor-100",
@@ -106,6 +115,9 @@ def test_one_c_fixture_maps_facts_calendar_and_incremental_cursor() -> None:
     assert snapshot.events[0].kind is FinancialEventKind.FACT
     assert snapshot.events[0].bank_transaction_id == "bank-1"
     assert snapshot.events[1].kind is FinancialEventKind.PLANNED
+    assert snapshot.events[1].counterparty.name == "Fictional supplier"
+    assert snapshot.events[1].payment_basis.document_number == "DELIVERY-1"
+    assert snapshot.events[1].period_end == date(2026, 7, 15)
     assert snapshot.source_cursor == "1c-cursor-100"
     assert snapshot.source_issues == ()
 
