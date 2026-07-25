@@ -238,6 +238,32 @@ def assess_forecast_readiness(
                     )
                 )
 
+        if (
+            snapshot.company is not None
+            and snapshot.company.jurisdiction == "GE"
+        ):
+            for event in planned_events:
+                if event.category not in {"payroll", "payroll_aggregate"}:
+                    continue
+                issues.append(
+                    DataIssue(
+                        code="payroll_breakdown_unavailable",
+                        severity=IssueSeverity.WARNING,
+                        dataset=DatasetKind.ACCOUNTING_FACTS,
+                        message=(
+                            f'Для операции «{event.title}» не передано разложение '
+                            "зарплаты на чистую выплату, налог и пенсионные взносы."
+                        ),
+                        impact=(
+                            "Сумма события учитывается как единый расход, но FinRadar "
+                            "пока не может проверить удержанный подоходный налог, "
+                            "долю работника и дополнительный пенсионный расход "
+                            "работодателя."
+                        ),
+                        source_reference=event.source_reference or event.external_id,
+                    )
+                )
+
     if not snapshot.supplies(DatasetKind.ACCOUNTING_FACTS):
         issues.append(
             DataIssue(

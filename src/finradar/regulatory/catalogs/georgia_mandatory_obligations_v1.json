@@ -1,0 +1,1090 @@
+{
+  "schema_version": 1,
+  "catalog_id": "georgia-mandatory-obligations",
+  "catalog_version": 1,
+  "payload_sha256": "8d80fe98b74cf0ba7ac63660e60128a4ffd30f5c2cb44d78df2a13ab33b9b70f",
+  "payload": {
+    "jurisdiction": "GE",
+    "verified_on": "2026-07-25",
+    "rates_included": false,
+    "sources": [
+      {
+        "source_id": "ge-tax-code-245",
+        "title": "Налоговый кодекс Грузии, консолидированная публикация 245",
+        "url": "https://matsne.gov.ge/ka/document/download/1043717/245/ge/pdf",
+        "provisions": [
+          "статья 6",
+          "статья 154",
+          "главы о подоходном налоге, налоге на прибыль, НДС, акцизе, налоге на импорт и налоге на имущество",
+          "положения о льготах, возврате, штрафах и пенях"
+        ],
+        "note": "Официальный грузинский текст; ставки и формулы в каталог версии 1 не переносятся."
+      },
+      {
+        "source_id": "ge-funded-pension-law-11",
+        "title": "Закон Грузии «О накопительной пенсии»",
+        "url": "https://new.matsne.gov.ge/ka/document/download/4280127/11/ge/pdf",
+        "provisions": [
+          "статья 3",
+          "положения об участии работников, работодателей, самозанятых и государства"
+        ],
+        "note": "Применимость зависит от статуса конкретного работника или самозанятого."
+      },
+      {
+        "source_id": "ge-pension-procedure-2025",
+        "title": "Инструкция Пенсионного фонда о пенсионных взносах",
+        "url": "https://matsne.gov.ge/ka/document/view/6493226",
+        "provisions": [
+          "статьи 10–13"
+        ],
+        "note": "Описывает декларирование и перечисление взносов, в том числе порядок после 1 мая 2025 года."
+      },
+      {
+        "source_id": "ge-labour-code",
+        "title": "Трудовой кодекс Грузии",
+        "url": "https://www.matsne.gov.ge/ka/document/view/1155567",
+        "provisions": [
+          "глава об оплате труда",
+          "статья 41"
+        ],
+        "note": "Размер и порядок оплаты труда определяются трудовым договором; зарплата является договорным, а не налоговым обязательством."
+      },
+      {
+        "source_id": "ge-fees-framework",
+        "title": "Закон Грузии «Об основах системы сборов»",
+        "url": "https://matsne.gov.ge/ka/document/view/31822",
+        "provisions": [
+          "статьи 1–3"
+        ],
+        "note": "Сбор является обязательным платежом за право или услугу, но не налогом из статьи 6 Налогового кодекса."
+      },
+      {
+        "source_id": "ge-local-fees-law",
+        "title": "Закон Грузии «О местных сборах»",
+        "url": "https://www.matsne.gov.ge/ka/document/view/93778",
+        "provisions": [
+          "статьи 3–6",
+          "статья 12¹"
+        ],
+        "note": "Фактическое введение, периодичность и размер зависят от нормативного акта конкретного муниципалитета."
+      },
+      {
+        "source_id": "ge-license-permit-fees-law",
+        "title": "Закон Грузии «О лицензионных и разрешительных сборах»",
+        "url": "https://matsne.gov.ge/ka/document/view/12880",
+        "provisions": [
+          "статьи о видах лицензионных и разрешительных сборов"
+        ],
+        "note": "Применяется только при обращении за соответствующей лицензией или разрешением."
+      },
+      {
+        "source_id": "ge-natural-resource-fees-law",
+        "title": "Закон Грузии «О сборах за пользование природными ресурсами»",
+        "url": "https://www.matsne.gov.ge/ka/document/view/28948",
+        "provisions": [
+          "статьи об объектах, плательщиках и сроках"
+        ],
+        "note": "Применяется к использованию перечисленных законом природных ресурсов."
+      },
+      {
+        "source_id": "ge-gambling-fee-law",
+        "title": "Закон Грузии «О сборе за игорный бизнес»",
+        "url": "https://matsne.gov.ge/ka/document/view/22828",
+        "provisions": [
+          "статьи о видах плательщиков и объектов сбора"
+        ],
+        "note": "Секторный обязательный платёж для регулируемой игорной деятельности."
+      },
+      {
+        "source_id": "ge-state-duty-law",
+        "title": "Закон Грузии «О государственной пошлине»",
+        "url": "https://matsne.gov.ge/ka/document/view/93718",
+        "provisions": [
+          "перечень действий, облагаемых государственной пошлиной"
+        ],
+        "note": "Возникает при совершении перечисленных законом юридически значимых действий."
+      },
+      {
+        "source_id": "ge-repealed-social-insurance-law",
+        "title": "Утративший силу Закон Грузии «Об обязательном социальном страховании»",
+        "url": "https://www.matsne.gov.ge/ka/document/view/12610",
+        "provisions": [
+          "дата утраты силы: 1 января 2006 года"
+        ],
+        "note": "Используется только как отрицательное доказательство: исторический взнос нельзя применять к текущей зарплате."
+      }
+    ],
+    "entries": [
+      {
+        "instrument_id": "ge-tax-income",
+        "name_ru": "Подоходный налог",
+        "kind": "tax",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Физическое лицо, индивидуальный предприниматель либо налоговый агент в установленных случаях",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Получение облагаемого дохода или обязанность налогового агента удержать налог",
+        "required_data": [
+          "статус получателя дохода",
+          "вид и дата дохода",
+          "налоговый режим",
+          "льготы и освобождения"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-tax-profit",
+        "name_ru": "Налог на прибыль",
+        "kind": "tax",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Организация или иное лицо, признаваемое плательщиком налога на прибыль",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Облагаемая операция или распределение, предусмотренные режимом налога на прибыль",
+        "required_data": [
+          "организационно-правовой и налоговый статус",
+          "распределения и приравненные операции",
+          "неэкономические расходы",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-tax-vat",
+        "name_ru": "Налог на добавленную стоимость",
+        "kind": "tax",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "partially_implemented",
+        "payer_role": "Зарегистрированный или обязанный зарегистрироваться плательщик НДС",
+        "recipient": "Служба доходов Грузии",
+        "trigger": "Облагаемая операция, импорт или иной предусмотренный законом объект НДС",
+        "required_data": [
+          "статус регистрации НДС",
+          "облагаемый оборот",
+          "входной НДС и право на вычет",
+          "освобождённые и специальные операции",
+          "импорт и обратное начисление"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "calculation_rule_ids": [
+          "ge-vat-standard"
+        ],
+        "note": "В Core реализован только узкий сценарий стандартных внутренних операций."
+      },
+      {
+        "instrument_id": "ge-tax-excise",
+        "name_ru": "Акциз",
+        "kind": "tax",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Производитель, импортёр или иное обязанное лицо по подакцизной операции",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Производство, импорт, поставка или иная операция с подакцизным товаром либо услугой",
+        "required_data": [
+          "код и вид подакцизного объекта",
+          "количество или налоговая база",
+          "операция и дата",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-tax-import",
+        "name_ru": "Налог на импорт",
+        "kind": "tax",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Импортёр",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Ввоз товара, образующий объект налога на импорт",
+        "required_data": [
+          "товарный код",
+          "таможенная стоимость",
+          "происхождение товара",
+          "таможенная процедура",
+          "льготы и соглашения"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-tax-property",
+        "name_ru": "Налог на имущество",
+        "kind": "tax",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Собственник или иное лицо, признаваемое плательщиком налога на имущество",
+        "recipient": "Соответствующий муниципальный бюджет",
+        "trigger": "Наличие облагаемого имущества или земли",
+        "required_data": [
+          "вид имущества",
+          "балансовые или оценочные показатели",
+          "местонахождение",
+          "период владения",
+          "муниципальные условия и льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-payroll-gross-salary",
+        "name_ru": "Валовая начисленная зарплата",
+        "kind": "contractual_payment",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "calculation_base",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель",
+        "recipient": "Работник и связанные получатели удержаний",
+        "trigger": "Начисление вознаграждения по трудовому договору",
+        "required_data": [
+          "работник",
+          "трудовой договор",
+          "период",
+          "валовое начисление",
+          "статус пенсионного участия",
+          "налоговые льготы"
+        ],
+        "source_ids": [
+          "ge-labour-code",
+          "ge-tax-code-245",
+          "ge-funded-pension-law-11"
+        ],
+        "group_id": "ge-payroll",
+        "note": "Это база разложения. Её нельзя одновременно учитывать как денежный отток вместе с чистой зарплатой и удержаниями."
+      },
+      {
+        "instrument_id": "ge-payroll-net-salary",
+        "name_ru": "Чистая зарплата к перечислению работнику",
+        "kind": "contractual_payment",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель",
+        "recipient": "Работник",
+        "trigger": "Наступление даты выплаты зарплаты после расчёта удержаний",
+        "required_data": [
+          "валовая зарплата",
+          "подоходный налог к удержанию",
+          "доля работника в пенсионном взносе",
+          "прочие законные удержания"
+        ],
+        "source_ids": [
+          "ge-labour-code",
+          "ge-tax-code-245",
+          "ge-funded-pension-law-11"
+        ],
+        "group_id": "ge-payroll",
+        "parent_instrument_id": "ge-payroll-gross-salary"
+      },
+      {
+        "instrument_id": "ge-withholding-employment-income-tax",
+        "name_ru": "Подоходный налог, удерживаемый из зарплаты",
+        "kind": "tax_withholding",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель как налоговый агент",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Выплата работнику облагаемой зарплаты",
+        "required_data": [
+          "валовая облагаемая зарплата",
+          "статус работника",
+          "исключения и льготы",
+          "период выплаты"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "group_id": "ge-payroll",
+        "parent_instrument_id": "ge-tax-income",
+        "note": "Это часть валовой зарплаты, удержанная у работника, а не дополнительный расход работодателя сверх валовой зарплаты."
+      },
+      {
+        "instrument_id": "ge-pension-employee-contribution",
+        "name_ru": "Пенсионный взнос работника, перечисляемый работодателем",
+        "kind": "pension_contribution",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель от имени участвующего работника",
+        "recipient": "Пенсионный фонд Грузии",
+        "trigger": "Выплата зарплаты работнику, участвующему в накопительной пенсионной схеме",
+        "required_data": [
+          "статус участия работника",
+          "облагаемая зарплата",
+          "период",
+          "история выхода или повторного вступления"
+        ],
+        "source_ids": [
+          "ge-funded-pension-law-11",
+          "ge-pension-procedure-2025"
+        ],
+        "group_id": "ge-payroll",
+        "parent_instrument_id": "ge-payroll-gross-salary",
+        "note": "Удерживается из суммы работника; применимость нельзя определять только по наличию зарплаты."
+      },
+      {
+        "instrument_id": "ge-pension-employer-contribution",
+        "name_ru": "Пенсионный взнос работодателя",
+        "kind": "pension_contribution",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "employer_additional_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель",
+        "recipient": "Пенсионный фонд Грузии",
+        "trigger": "Выплата зарплаты работнику, участвующему в накопительной пенсионной схеме",
+        "required_data": [
+          "статус участия работника",
+          "облагаемая зарплата",
+          "период"
+        ],
+        "source_ids": [
+          "ge-funded-pension-law-11",
+          "ge-pension-procedure-2025"
+        ],
+        "group_id": "ge-payroll",
+        "parent_instrument_id": "ge-payroll-gross-salary",
+        "note": "Это дополнительный расход работодателя сверх валовой зарплаты."
+      },
+      {
+        "instrument_id": "ge-pension-state-cofinancing",
+        "name_ru": "Государственное пенсионное софинансирование",
+        "kind": "pension_contribution",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "no_company_cash_flow",
+        "formula_status": "catalog_only",
+        "payer_role": "Государство",
+        "recipient": "Индивидуальный пенсионный счёт участника",
+        "trigger": "Участие работника или самозанятого в накопительной пенсионной схеме",
+        "required_data": [
+          "статус участника",
+          "годовой доход участника"
+        ],
+        "source_ids": [
+          "ge-funded-pension-law-11",
+          "ge-pension-procedure-2025"
+        ],
+        "group_id": "ge-payroll",
+        "parent_instrument_id": "ge-payroll-gross-salary",
+        "note": "Показывается для полноты, но не включается в денежный прогноз компании."
+      },
+      {
+        "instrument_id": "ge-payroll-reporting",
+        "name_ru": "Зарплатная налоговая и пенсионная отчётность",
+        "kind": "reporting_duty",
+        "applicability": "employee_specific",
+        "cash_flow_treatment": "no_company_cash_flow",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель",
+        "recipient": "Служба доходов и Пенсионный фонд Грузии",
+        "trigger": "Начисление или выплата зарплаты и возникновение связанных обязательств",
+        "required_data": [
+          "реестр работников",
+          "начисления",
+          "удержания",
+          "пенсионный статус",
+          "фактические выплаты"
+        ],
+        "source_ids": [
+          "ge-tax-code-245",
+          "ge-pension-procedure-2025"
+        ],
+        "group_id": "ge-payroll"
+      },
+      {
+        "instrument_id": "ge-withholding-dividend-income-tax",
+        "name_ru": "Удержание налога при выплате дивидендов физическому лицу",
+        "kind": "tax_withholding",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Выплачивающая организация как налоговый агент",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Выплата дивиденда, подпадающая под удержание у источника",
+        "required_data": [
+          "получатель",
+          "резидентство",
+          "сумма и дата дивиденда",
+          "международное соглашение",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-withholding-interest-income-tax",
+        "name_ru": "Удержание налога при выплате процентов",
+        "kind": "tax_withholding",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Плательщик процентов как налоговый агент в установленных случаях",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Выплата процентов, подпадающая под удержание у источника",
+        "required_data": [
+          "получатель",
+          "резидентство",
+          "вид долгового обязательства",
+          "сумма и дата",
+          "международное соглашение",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-withholding-nonresident-payment",
+        "name_ru": "Удержание налога с отдельных выплат нерезиденту",
+        "kind": "tax_withholding",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Грузинский плательщик как налоговый агент в установленных случаях",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Выплата нерезиденту дохода из источника в Грузии, подпадающего под удержание",
+        "required_data": [
+          "резидентство и налоговый статус получателя",
+          "вид услуги или дохода",
+          "место оказания",
+          "сумма и дата",
+          "международное соглашение"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-withholding-other-tax-agent-payment",
+        "name_ru": "Иные удержания налоговым агентом по статье 154",
+        "kind": "tax_withholding",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "withheld_remittance",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо, признаваемое налоговым агентом",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Выплата, прямо включённая статьёй 154 в перечень удержаний у источника",
+        "required_data": [
+          "тип выплаты",
+          "получатель",
+          "налоговый статус",
+          "сумма и дата",
+          "исключения"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income",
+        "note": "Перед добавлением формул эта семейная запись должна быть разделена на точные виды выплат."
+      },
+      {
+        "instrument_id": "ge-regime-micro-business",
+        "name_ru": "Режим микробизнеса",
+        "kind": "tax_regime",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Физическое лицо со статусом микробизнеса",
+        "recipient": "Не является отдельным получателем платежа",
+        "trigger": "Наличие действующего статуса и соблюдение его условий",
+        "required_data": [
+          "статус",
+          "вид деятельности",
+          "доход",
+          "ограничения режима"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-regime-small-business",
+        "name_ru": "Режим малого бизнеса",
+        "kind": "tax_regime",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Предприниматель-физическое лицо со статусом малого бизнеса",
+        "recipient": "Не является отдельным получателем платежа",
+        "trigger": "Наличие действующего статуса и соблюдение его условий",
+        "required_data": [
+          "статус",
+          "вид деятельности",
+          "оборот",
+          "нарушения порогов и ограничений"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-regime-fixed-taxpayer",
+        "name_ru": "Режим фиксированного налогоплательщика",
+        "kind": "tax_regime",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо с действующим статусом фиксированного налогоплательщика",
+        "recipient": "Не является отдельным получателем платежа",
+        "trigger": "Наличие статуса и осуществление разрешённой для режима деятельности",
+        "required_data": [
+          "статус",
+          "вид деятельности",
+          "объекты расчёта",
+          "период"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-income"
+      },
+      {
+        "instrument_id": "ge-regime-vat-registration",
+        "name_ru": "Статус регистрации плательщика НДС",
+        "kind": "tax_regime",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо, зарегистрированное или обязанное зарегистрироваться по НДС",
+        "recipient": "Не является отдельным получателем платежа",
+        "trigger": "Добровольная регистрация или наступление установленного законом основания",
+        "required_data": [
+          "история облагаемых операций",
+          "регистрационный статус",
+          "дата регистрации или обязанности зарегистрироваться"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-vat"
+      },
+      {
+        "instrument_id": "ge-regime-distributed-profit",
+        "name_ru": "Режим налогообложения распределённой прибыли",
+        "kind": "tax_regime",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Организация, подпадающая под соответствующий режим налога на прибыль",
+        "recipient": "Не является отдельным получателем платежа",
+        "trigger": "Распределение прибыли или приравненная законом операция",
+        "required_data": [
+          "статус организации",
+          "распределения",
+          "приравненные выплаты и расходы",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-profit"
+      },
+      {
+        "instrument_id": "ge-tax-reliefs-and-exemptions",
+        "name_ru": "Налоговые льготы и освобождения",
+        "kind": "relief",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "modifier_only",
+        "formula_status": "catalog_only",
+        "payer_role": "Плательщик, подтвердивший условия льготы",
+        "recipient": "Не создаёт отдельный платёж",
+        "trigger": "Выполнение всех условий конкретной льготы или освобождения",
+        "required_data": [
+          "налог",
+          "операция",
+          "статус плательщика",
+          "подтверждающие документы",
+          "период действия нормы"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "note": "Перед расчётами семейная запись должна быть разделена по налогам и конкретным основаниям."
+      },
+      {
+        "instrument_id": "ge-vat-credit-or-refund",
+        "name_ru": "Налоговый кредит или возврат НДС",
+        "kind": "refund_or_credit",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "potential_inflow",
+        "formula_status": "partially_implemented",
+        "payer_role": "Плательщик НДС как заявитель или держатель кредитовой позиции",
+        "recipient": "Компания после подтверждения возврата либо будущий зачёт",
+        "trigger": "Превышение допустимого вычета над начисленным НДС и выполнение условий возврата или зачёта",
+        "required_data": [
+          "расчёт НДС",
+          "подтверждение права на вычет",
+          "заявление или решение",
+          "дата подтверждённого возврата"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "parent_instrument_id": "ge-tax-vat",
+        "calculation_rule_ids": [
+          "ge-vat-standard"
+        ],
+        "note": "Core показывает кредитовую позицию, но не создаёт денежное поступление без подтверждённой даты."
+      },
+      {
+        "instrument_id": "ge-tax-overpayment-refund-or-offset",
+        "name_ru": "Возврат или зачёт налоговой переплаты",
+        "kind": "refund_or_credit",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "potential_inflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Налогоплательщик как заявитель",
+        "recipient": "Компания после зачёта или подтверждённого возврата",
+        "trigger": "Подтверждённая переплата и предусмотренная законом процедура",
+        "required_data": [
+          "лицевой счёт",
+          "вид налога",
+          "подтверждённая переплата",
+          "заявление",
+          "решение и дата исполнения"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-state-duty",
+        "name_ru": "Государственная пошлина",
+        "kind": "fee",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Заявитель или участник юридически значимого действия",
+        "recipient": "Соответствующий бюджет или уполномоченный орган",
+        "trigger": "Обращение за действием, указанным в законе о государственной пошлине",
+        "required_data": [
+          "вид действия",
+          "орган",
+          "предмет или цена требования",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-state-duty-law",
+          "ge-fees-framework"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-license-or-permit",
+        "name_ru": "Лицензионный или разрешительный сбор",
+        "kind": "fee",
+        "applicability": "sector_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Соискатель лицензии или разрешения",
+        "recipient": "Государственный орган или соответствующий бюджет",
+        "trigger": "Обращение за конкретной лицензией или разрешением",
+        "required_data": [
+          "вид лицензии или разрешения",
+          "выдающий орган",
+          "деятельность",
+          "территория",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-license-permit-fees-law",
+          "ge-fees-framework"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-natural-resource-use",
+        "name_ru": "Сбор за пользование природными ресурсами",
+        "kind": "fee",
+        "applicability": "sector_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Пользователь природного ресурса",
+        "recipient": "Бюджет, определённый законодательством",
+        "trigger": "Добыча или использование природного ресурса, указанного законом",
+        "required_data": [
+          "вид ресурса",
+          "лицензия или право пользования",
+          "фактический объём",
+          "место и период",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-natural-resource-fees-law",
+          "ge-fees-framework"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-local-construction-permit",
+        "name_ru": "Местный сбор за разрешение на строительство",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Собственник или заказчик строящегося объекта",
+        "recipient": "Муниципальный бюджет",
+        "trigger": "Получение разрешения на строительство",
+        "required_data": [
+          "муниципалитет",
+          "вид и класс объекта",
+          "расчётная площадь или длина",
+          "местный нормативный акт",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-local-fees-law",
+          "ge-fees-framework"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-local-cleaning",
+        "name_ru": "Местный сбор за уборку населённой территории и обращение с отходами",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо или организация, образующие отходы",
+        "recipient": "Муниципальный бюджет или уполномоченный получатель",
+        "trigger": "Образование отходов в муниципалитете, где сбор введён",
+        "required_data": [
+          "муниципалитет",
+          "вид деятельности",
+          "расчётный показатель отходов",
+          "местный тариф и период",
+          "льготы"
+        ],
+        "source_ids": [
+          "ge-local-fees-law",
+          "ge-fees-framework"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-gambling-business",
+        "name_ru": "Сбор за игорный бизнес",
+        "kind": "fee",
+        "applicability": "sector_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Организатор регулируемой игорной деятельности",
+        "recipient": "Государственный или муниципальный бюджет по виду сбора",
+        "trigger": "Осуществление указанной законом игорной деятельности",
+        "required_data": [
+          "вид разрешения",
+          "вид и количество объектов",
+          "форма организации",
+          "муниципалитет",
+          "период"
+        ],
+        "source_ids": [
+          "ge-gambling-fee-law",
+          "ge-local-fees-law"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-cultural-heritage-infrastructure",
+        "name_ru": "Сбор на инфраструктуру реабилитационной зоны культурного наследия",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо, подпадающее под условия местного сбора",
+        "recipient": "Муниципальный бюджет",
+        "trigger": "Операция или деятельность в соответствующей реабилитационной зоне",
+        "required_data": [
+          "муниципалитет",
+          "зона",
+          "объект и деятельность",
+          "местный нормативный акт"
+        ],
+        "source_ids": [
+          "ge-local-fees-law"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-expedited-construction-commissioning",
+        "name_ru": "Сбор за ускоренное оформление ввода строительного объекта в эксплуатацию",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Заказчик завершённого строительного объекта",
+        "recipient": "Муниципальный бюджет",
+        "trigger": "Заказ ускоренной муниципальной услуги",
+        "required_data": [
+          "муниципалитет",
+          "объект",
+          "срок услуги",
+          "местный нормативный акт"
+        ],
+        "source_ids": [
+          "ge-local-fees-law"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-local-container",
+        "name_ru": "Местный контейнерный сбор",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо, подпадающее под установленный муниципалитетом контейнерный сбор",
+        "recipient": "Муниципальный бюджет",
+        "trigger": "Операция с контейнером на территории, где сбор введён",
+        "required_data": [
+          "муниципалитет",
+          "операция",
+          "контейнеры",
+          "местный нормативный акт"
+        ],
+        "source_ids": [
+          "ge-local-fees-law"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-expedited-construction-violation-act",
+        "name_ru": "Сбор за ускоренное оформление акта по признанному строительному нарушению",
+        "kind": "fee",
+        "applicability": "municipal",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Заказчик или нарушитель, обратившийся за ускоренной услугой",
+        "recipient": "Муниципальный бюджет",
+        "trigger": "Признание строительного нарушения и заказ ускоренного оформления акта",
+        "required_data": [
+          "муниципалитет",
+          "объект",
+          "вид нарушения",
+          "местный нормативный акт"
+        ],
+        "source_ids": [
+          "ge-local-fees-law"
+        ]
+      },
+      {
+        "instrument_id": "ge-fee-public-service-or-registration",
+        "name_ru": "Обязательный сбор за государственную услугу или регистрацию",
+        "kind": "fee",
+        "applicability": "transaction_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Заявитель",
+        "recipient": "Уполномоченный государственный орган или бюджет",
+        "trigger": "Получение права, регистрации или услуги, за которую законом установлен сбор",
+        "required_data": [
+          "вид услуги",
+          "орган",
+          "срочность",
+          "основание и льготы"
+        ],
+        "source_ids": [
+          "ge-fees-framework"
+        ],
+        "note": "Это семейная запись. Перед добавлением ставок её нужно разделять по конкретным законам и услугам."
+      },
+      {
+        "instrument_id": "ge-fee-other-sector-regulatory",
+        "name_ru": "Иной отраслевой обязательный сбор",
+        "kind": "fee",
+        "applicability": "sector_specific",
+        "cash_flow_treatment": "direct_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Регулируемое лицо",
+        "recipient": "Регулятор или соответствующий бюджет",
+        "trigger": "Осуществление деятельности, для которой специальным законом установлен сбор",
+        "required_data": [
+          "отрасль",
+          "лицензия",
+          "регулятор",
+          "специальный закон",
+          "объект расчёта"
+        ],
+        "source_ids": [
+          "ge-fees-framework"
+        ],
+        "note": "Закрывает границу каталога версии 1, но не разрешает расчёт: требуется отдельная проверенная запись для каждой отрасли."
+      },
+      {
+        "instrument_id": "ge-tax-late-payment-interest",
+        "name_ru": "Пеня за просрочку налогового обязательства",
+        "kind": "late_payment_interest",
+        "applicability": "consequence_only",
+        "cash_flow_treatment": "contingent_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо с просроченной налоговой задолженностью",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Непогашенная налоговая задолженность после срока",
+        "required_data": [
+          "вид обязательства",
+          "непогашенная сумма",
+          "срок",
+          "дни просрочки",
+          "периоды действия правил пени"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-tax-fine",
+        "name_ru": "Налоговый штраф",
+        "kind": "penalty",
+        "applicability": "consequence_only",
+        "cash_flow_treatment": "contingent_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Лицо, совершившее установленное налоговое нарушение",
+        "recipient": "Бюджет Грузии",
+        "trigger": "Состав нарушения и, когда требуется, решение уполномоченного органа",
+        "required_data": [
+          "тип нарушения",
+          "дата",
+          "связанный налог",
+          "база санкции",
+          "решение органа"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ]
+      },
+      {
+        "instrument_id": "ge-pension-penalty-or-interest",
+        "name_ru": "Последствие нарушения пенсионных обязанностей",
+        "kind": "penalty",
+        "applicability": "consequence_only",
+        "cash_flow_treatment": "contingent_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель или самозанятый при установленном нарушении",
+        "recipient": "Получатель, определённый пенсионным законодательством",
+        "trigger": "Недоплата, просрочка или нарушение отчётной процедуры",
+        "required_data": [
+          "обязательство",
+          "срок",
+          "уплаченная сумма",
+          "нарушение",
+          "решение или автоматическое основание"
+        ],
+        "source_ids": [
+          "ge-funded-pension-law-11",
+          "ge-pension-procedure-2025"
+        ]
+      },
+      {
+        "instrument_id": "ge-payroll-late-payment-compensation",
+        "name_ru": "Компенсация работнику за задержку оплаты труда",
+        "kind": "late_payment_interest",
+        "applicability": "consequence_only",
+        "cash_flow_treatment": "contingent_outflow",
+        "formula_status": "catalog_only",
+        "payer_role": "Работодатель",
+        "recipient": "Работник",
+        "trigger": "Задержка выплаты зарплаты или расчёта",
+        "required_data": [
+          "просроченная сумма",
+          "договорный срок",
+          "фактическая дата выплаты",
+          "дни задержки"
+        ],
+        "source_ids": [
+          "ge-labour-code"
+        ],
+        "group_id": "ge-payroll-consequence"
+      },
+      {
+        "instrument_id": "ge-tax-reporting",
+        "name_ru": "Налоговые декларации, расчёты и уведомления",
+        "kind": "reporting_duty",
+        "applicability": "company_specific",
+        "cash_flow_treatment": "no_company_cash_flow",
+        "formula_status": "catalog_only",
+        "payer_role": "Налогоплательщик или налоговый агент",
+        "recipient": "Служба доходов Грузии",
+        "trigger": "Возникновение обязанности по конкретному налогу, режиму или удержанию",
+        "required_data": [
+          "налоговый статус",
+          "вид декларации",
+          "отчётный период",
+          "операции",
+          "срок"
+        ],
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "note": "Отсутствие денежной суммы не означает отсутствие риска: нарушение срока может создать штраф."
+      }
+    ],
+    "findings": [
+      {
+        "finding_id": "ge-six-taxes-only",
+        "statement": "Налоговый кодекс относит к налогам ровно пять общегосударственных налогов и один местный налог на имущество.",
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "consequence": "Сборы, пенсионные взносы, удержания, штрафы и зарплата не должны регистрироваться как дополнительные налоги."
+      },
+      {
+        "finding_id": "ge-no-current-general-social-insurance-contribution",
+        "statement": "Исторический закон об обязательном социальном страховании утратил силу 1 января 2006 года.",
+        "source_ids": [
+          "ge-repealed-social-insurance-law"
+        ],
+        "consequence": "Нельзя автоматически добавлять к текущей зарплате универсальный взнос социального страхования по утратившему силу закону."
+      },
+      {
+        "finding_id": "ge-no-separate-payroll-tax",
+        "statement": "Отдельный универсальный налог на фонд оплаты труда не входит в действующий перечень налогов статьи 6.",
+        "source_ids": [
+          "ge-tax-code-245"
+        ],
+        "consequence": "Зарплатный налог у источника моделируется как удержание подоходного налога работника, а не как самостоятельный седьмой налог."
+      },
+      {
+        "finding_id": "ge-pension-is-conditional-per-person",
+        "statement": "Пенсионные обязательства зависят от участия конкретного работника или самозанятого в накопительной пенсионной схеме.",
+        "source_ids": [
+          "ge-funded-pension-law-11",
+          "ge-pension-procedure-2025"
+        ],
+        "consequence": "Для расчёта недостаточно общей суммы зарплаты; нужен пенсионный статус каждого работника."
+      },
+      {
+        "finding_id": "ge-payroll-must-not-double-count-gross",
+        "statement": "Валовая зарплата является базой разложения на чистую выплату, удержания и дополнительный пенсионный расход работодателя.",
+        "source_ids": [
+          "ge-labour-code",
+          "ge-tax-code-245",
+          "ge-funded-pension-law-11"
+        ],
+        "consequence": "В денежном прогнозе нельзя одновременно учитывать валовую зарплату и все её компоненты как независимые расходы."
+      },
+      {
+        "finding_id": "ge-fees-require-local-and-sector-resolution",
+        "statement": "Муниципальные и отраслевые сборы применяются только при наличии соответствующей территории, деятельности, права или услуги.",
+        "source_ids": [
+          "ge-fees-framework",
+          "ge-local-fees-law",
+          "ge-license-permit-fees-law"
+        ],
+        "consequence": "Перед расчётом ставок каталог должен быть расширен конкретным муниципальным или отраслевым нормативным актом."
+      }
+    ]
+  }
+}

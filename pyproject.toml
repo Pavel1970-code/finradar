@@ -37,7 +37,7 @@ where = ["src"]
 include = ["finradar", "finradar.*"]
 
 [tool.setuptools.package-data]
-finradar = ["demo/scenarios/*.json"]
+finradar = ["demo/scenarios/*.json", "regulatory/catalogs/*.json"]
 
 [tool.ruff]
 line-length = 100

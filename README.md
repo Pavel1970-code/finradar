@@ -104,3 +104,7 @@ A function-by-function factual description of the current implementation,
 including test evidence, Windows status, missing components, and known risks, is
 available in
 [PROJECT_FACTUAL_DESCRIPTION.md](docs/implementation/PROJECT_FACTUAL_DESCRIPTION.md).
+
+The rate-free Georgian mandatory-obligation catalog and its payroll
+double-counting rules are documented in
+[GEORGIA_MANDATORY_OBLIGATIONS_CATALOG.md](docs/regulatory/GEORGIA_MANDATORY_OBLIGATIONS_CATALOG.md).

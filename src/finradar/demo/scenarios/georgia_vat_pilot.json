@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scenario_id": "georgia_vat_pilot",
   "scenario_version": 1,
-  "payload_sha256": "045ba57f66c80b850d947f42988727621f03b6aa9ea3a6a8c248dc9689d0e2a7",
+  "payload_sha256": "f748834da812ad93efc2816905328ceba46024c71ee1c6e2129e4d52cdb2978e",
   "payload": {
     "title": "Грузия: аудит НДС и прогноз — пилот",
     "fictional_notice": "Компания и бухгалтерские операции вымышлены. Ставка, отчётный период и срок уплаты НДС взяты из действующей консолидированной редакции Налогового кодекса Грузии; расчёт намеренно ограничен стандартными внутренними операциями.",
@@ -174,14 +174,14 @@
         },
         {
           "external_id": "fictional-ge-payroll",
-          "title": "Заработная плата за июль",
+          "title": "Агрегированная зарплатная выплата за июль",
           "amount": "4000.00",
           "currency": "GEL",
           "due_date": "2026-07-31",
           "direction": "outflow",
           "kind": "planned",
           "status": "confirmed",
-          "category": "payroll",
+          "category": "payroll_aggregate",
           "account_external_id": "fictional-ge-operating-account",
           "source_reference": "fictional-payment-calendar:ge:003",
           "counterparty": {
@@ -189,7 +189,7 @@
             "name": "Сотрудники — агрегированная выплата",
             "kind": "employees"
           },
-          "payment_purpose": "Заработная плата за июль 2026 года",
+          "payment_purpose": "Единая сумма без разложения налога и пенсионных взносов",
           "payment_basis": {
             "document_type": "payroll_register",
             "document_number": "GE-DEMO-PAY-07",
@@ -281,7 +281,8 @@
       "fiscal_obligation_amount": "2500.00",
       "stress_minimum_balance": "-3000.00",
       "issue_codes": [
-        "bank_statements_empty"
+        "bank_statements_empty",
+        "payroll_breakdown_unavailable"
       ],
       "bank_matched_count": 0,
       "bank_missing_count": 0

@@ -192,6 +192,20 @@ calculate amounts.
   only the outstanding GEL 2,000 in the cash forecast.
 - Unresolved fiscal inputs are shown as user-facing data gaps; the forecast then
   relies only on any amount already present in the payment calendar.
+- A versioned Georgian mandatory-obligation catalog contains 42 tax, payroll,
+  pension, withholding, regime, refund, fee, sanction, and reporting entries
+  backed by 11 official sources. Version 1 intentionally contains no rates.
+- Catalog validation requires exactly the six taxes from Article 6, checks all
+  legal-source and parent links, and protects the bundled JSON with SHA-256.
+- Payroll is split into gross calculation base, net employee payment, employee
+  income-tax withholding, employee pension withholding, additional employer
+  pension cost, state co-financing, and reporting. Gross salary is explicitly
+  prohibited from acting as another cash outflow when components are separate.
+- The catalog records that the historical mandatory social-insurance law lost
+  force on 1 January 2006 and that the current Tax Code has no separate general
+  payroll tax in its list of taxes.
+- Georgian aggregate payroll rows now produce a data-readiness limitation
+  explaining that income-tax and pension components cannot yet be checked.
 
 ## Verification
 
@@ -202,7 +216,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest local result: Ruff passed; 127 tests passed. The suite includes Ed25519
+Latest local result: Ruff passed; 134 tests passed. The suite includes Ed25519
 tamper rejection, key rotation and revocation, package expiry, quarantine,
 replay protection, immutable import audit, archive-integrity verification,
 distribution manifests and wheel-boundary verification, the regulatory trust
@@ -237,6 +251,9 @@ and UI smoke tests.
 - Weekend deadline rolling is deterministic. Public holidays are applied only
   when supplied explicitly with the rule; a maintained Georgian holiday
   calendar is not implemented.
+- The obligation catalog classifies municipal and sector-specific fee families,
+  but it is not an exhaustive rate table for every municipality, regulator, or
+  licensed activity. Each such family still needs a concrete applicable act.
 - Penalty and fine structures are generic and tested only with fictional rules;
   no real jurisdictional formula has been activated.
 - No network access has been added.

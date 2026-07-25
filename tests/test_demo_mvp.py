@@ -415,6 +415,8 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
     assert "Вычитаемый входной НДС: -1,100.00 GEL" in texts
     assert "Итоговая налоговая позиция: 2,500.00 GEL" in texts
     assert "Налоговый кодекс Грузии, статьи 166–168 и 181" in texts
+    assert "не передано разложение зарплаты" in texts
+    assert "дополнительный пенсионный расход работодателя" in texts
 
 
 def test_base_calendar_shows_debtors_payees_documents_and_tax_details(qtbot) -> None:
