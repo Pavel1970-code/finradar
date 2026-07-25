@@ -35,7 +35,11 @@ from finradar.domain.financial_snapshot import (
     SourceDataIssue,
     SourceIssueSeverity,
 )
-from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
+from finradar.domain.fiscal import (
+    FiscalRuleStatus,
+    GeorgianVatRule,
+    PercentageFiscalRule,
+)
 from finradar.domain.fiscal_consequences import (
     FineRule,
     LatePaymentPenaltyRule,
@@ -191,6 +195,32 @@ class _FiscalRuleData(_ContractModel):
     payment_recipient: _CounterpartyData | None = None
 
 
+class _GeorgianVatRuleData(_ContractModel):
+    rule_id: str
+    version: int = Field(ge=1)
+    title: str
+    jurisdiction: str
+    tax_regimes: frozenset[str]
+    effective_from: date
+    effective_to: date | None = None
+    taxable_turnover_metric_code: str
+    deductible_input_vat_metric_code: str
+    output_adjustment_metric_code: str
+    import_vat_metric_code: str
+    reverse_charge_vat_metric_code: str
+    excluded_or_mixed_use_metric_code: str
+    special_transaction_metric_code: str
+    rate: Decimal
+    due_day_of_following_month: int = Field(ge=1, le=28)
+    obligation_category: str
+    source_reference: str
+    payment_recipient: _CounterpartyData | None = None
+    non_business_dates: frozenset[date] = frozenset()
+
+
+_ObligationRuleData = _FiscalRuleData | _GeorgianVatRuleData
+
+
 class _PenaltyPeriodData(_ContractModel):
     effective_from: date
     effective_to: date | None = None
@@ -269,10 +299,10 @@ class _ScenarioPayload(_ContractModel):
     stress_overdue_days: int = Field(ge=0, le=366)
     accounting: _AccountingData
     bank: _BankData | None = None
-    fiscal_rules: tuple[_FiscalRuleData, ...] = ()
+    fiscal_rules: tuple[_ObligationRuleData, ...] = ()
     penalty_rules: tuple[_PenaltyRuleData, ...] = ()
     fine_rules: tuple[_FineRuleData, ...] = ()
-    baseline_fiscal_rules: tuple[_FiscalRuleData, ...] = ()
+    baseline_fiscal_rules: tuple[_ObligationRuleData, ...] = ()
     baseline_penalty_rules: tuple[_PenaltyRuleData, ...] = ()
     baseline_fine_rules: tuple[_FineRuleData, ...] = ()
     violation_events: tuple[_ViolationData, ...] = ()
@@ -448,21 +478,13 @@ def _to_domain(envelope: _ScenarioEnvelope) -> DemoScenario:
 
 
 def _to_rule_set(
-    fiscal_rules: tuple[_FiscalRuleData, ...],
+    fiscal_rules: tuple[_ObligationRuleData, ...],
     penalty_rules: tuple[_PenaltyRuleData, ...],
     fine_rules: tuple[_FineRuleData, ...],
 ) -> ActiveFiscalRuleSet:
     return ActiveFiscalRuleSet(
         obligation_rules=tuple(
-            PercentageFiscalRule(
-                **item.model_dump(exclude={"payment_recipient"}),
-                payment_recipient=(
-                    CounterpartyReference(**item.payment_recipient.model_dump())
-                    if item.payment_recipient is not None
-                    else None
-                ),
-                status=FiscalRuleStatus.ACTIVE,
-            )
+            _obligation_rule_to_domain(item)
             for item in fiscal_rules
         ),
         penalty_rules=tuple(
@@ -487,6 +509,23 @@ def _to_rule_set(
             )
             for item in fine_rules
         ),
+    )
+
+
+def _obligation_rule_to_domain(
+    item: _ObligationRuleData,
+) -> PercentageFiscalRule | GeorgianVatRule:
+    values = item.model_dump(exclude={"payment_recipient"})
+    recipient = (
+        CounterpartyReference(**item.payment_recipient.model_dump())
+        if item.payment_recipient is not None
+        else None
+    )
+    rule_type = GeorgianVatRule if isinstance(item, _GeorgianVatRuleData) else PercentageFiscalRule
+    return rule_type(
+        **values,
+        payment_recipient=recipient,
+        status=FiscalRuleStatus.ACTIVE,
     )
 
 

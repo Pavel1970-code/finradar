@@ -29,7 +29,7 @@ from finradar.domain.data_readiness import (
     assess_forecast_readiness,
 )
 from finradar.domain.financial_snapshot import FinancialSnapshot
-from finradar.domain.fiscal import PercentageFiscalRule
+from finradar.domain.fiscal import FiscalObligationRule
 from finradar.domain.fiscal_consequences import (
     FineRule,
     FiscalConsequence,
@@ -62,7 +62,7 @@ def synchronize_and_forecast(
     as_of: date,
     horizon_days: int = 30,
     recorder: SynchronizationRecorder | None = None,
-    fiscal_rules: tuple[PercentageFiscalRule, ...] = (),
+    fiscal_rules: tuple[FiscalObligationRule, ...] = (),
     penalty_rules: tuple[LatePaymentPenaltyRule, ...] = (),
     fine_rules: tuple[FineRule, ...] = (),
     violation_events: tuple[ViolationEvent, ...] = (),

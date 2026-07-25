@@ -7,6 +7,7 @@ from decimal import Decimal
 from finradar.application.fiscal_comparison import FiscalComparisonStatus
 from finradar.application.synchronization_service import SynchronizationOutcome
 from finradar.domain.data_readiness import IssueSeverity
+from finradar.domain.fiscal import ApplicabilityStatus, FiscalPositionType
 from finradar.domain.fiscal_consequences import ConsequenceStatus
 
 
@@ -28,6 +29,26 @@ class FiscalObligationView:
     recipient_name: str
     period_start: date | None
     period_end: date | None
+
+
+@dataclass(frozen=True, slots=True)
+class FiscalComponentView:
+    title: str
+    amount: Decimal
+    currency: str
+
+
+@dataclass(frozen=True, slots=True)
+class FiscalCalculationView:
+    title: str
+    resolved: bool
+    position_text: str
+    net_amount: Decimal | None
+    currency: str
+    components: tuple[FiscalComponentView, ...]
+    explanation: str
+    missing_fields: tuple[str, ...]
+    source_reference: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +78,7 @@ class FiscalComparisonView:
 class ForecastViewModel:
     currency: str
     data_gaps: tuple[DataGapView, ...]
+    fiscal_calculations: tuple[FiscalCalculationView, ...]
     obligations: tuple[FiscalObligationView, ...]
     consequences: tuple[FiscalConsequenceView, ...]
     comparison: FiscalComparisonView | None
@@ -64,13 +86,52 @@ class ForecastViewModel:
 
 def build_forecast_view_model(outcome: SynchronizationOutcome) -> ForecastViewModel:
     currency = outcome.snapshot.company.base_currency if outcome.snapshot.company else ""
-    gaps = tuple(
+    readiness_gaps = tuple(
         DataGapView(
             blocking=item.severity is IssueSeverity.ERROR,
             message=_issue_text(item.code, item.message, item.impact)[0],
             impact=_issue_text(item.code, item.message, item.impact)[1],
         )
         for item in outcome.readiness.issues
+    )
+    fiscal_gaps = tuple(
+        DataGapView(
+            blocking=False,
+            message=f"Налоговый расчёт «{analysis.calculation.title}» не выполнен.",
+            impact=(
+                "Расчётное обязательство не сформировано; прогноз может учитывать "
+                "только уже заполненный платёжный календарь. Не хватает: "
+                f"{_missing_fields_text(analysis.calculation.applicability.missing_fields)}."
+            ),
+        )
+        for analysis in outcome.rule_analyses
+        if analysis.calculation.applicability.status is ApplicabilityStatus.UNRESOLVED
+    )
+    calculations = tuple(
+        FiscalCalculationView(
+            title=calculation.title,
+            resolved=calculation.applicability.status is ApplicabilityStatus.APPLIED,
+            position_text=_position_text(calculation.position),
+            net_amount=calculation.net_amount,
+            currency=calculation.currency,
+            components=tuple(
+                FiscalComponentView(
+                    title=_component_title(component.code, component.title),
+                    amount=component.amount,
+                    currency=component.currency,
+                )
+                for component in calculation.components
+            ),
+            explanation=calculation.explanation,
+            missing_fields=tuple(
+                _missing_field_text(value)
+                for value in calculation.applicability.missing_fields
+            ),
+            source_reference=calculation.source_reference,
+        )
+        for analysis in outcome.rule_analyses
+        for calculation in (analysis.calculation,)
+        if calculation.applicability.status is not ApplicabilityStatus.NOT_APPLICABLE
     )
     obligations = tuple(
         FiscalObligationView(
@@ -120,11 +181,62 @@ def build_forecast_view_model(outcome: SynchronizationOutcome) -> ForecastViewMo
     comparison = _comparison_view(outcome)
     return ForecastViewModel(
         currency=currency,
-        data_gaps=gaps,
+        data_gaps=readiness_gaps + fiscal_gaps,
+        fiscal_calculations=calculations,
         obligations=obligations,
         consequences=consequences,
         comparison=comparison,
     )
+
+
+def _position_text(position: FiscalPositionType | None) -> str:
+    return {
+        FiscalPositionType.PAYABLE: "К уплате",
+        FiscalPositionType.CREDIT: "Налоговый кредит / сумма к переносу или возврату",
+        FiscalPositionType.ZERO: "Нулевая позиция",
+        None: "Расчёт не выполнен",
+    }[position]
+
+
+def _component_title(code: str, fallback: str) -> str:
+    return {
+        "output_vat": "Начисленный НДС со стандартного облагаемого оборота",
+        "deductible_input_vat": "Вычитаемый входной НДС",
+        "output_adjustment": "Дополнительные корректировки начисленного НДС",
+        "import_vat": "НДС при импорте к уплате",
+        "reverse_charge_vat": "НДС по обратному начислению к уплате",
+    }.get(code, fallback)
+
+
+def _missing_fields_text(fields: tuple[str, ...]) -> str:
+    return ", ".join(_missing_field_text(item) for item in fields)
+
+
+def _missing_field_text(value: str) -> str:
+    prefix, _, code = value.partition(":")
+    names = {
+        "ge_vat_standard_taxable_turnover_net": (
+            "облагаемый оборот без НДС за отчётный месяц"
+        ),
+        "ge_vat_deductible_input_vat": "подтверждённый входной НДС к вычету",
+        "ge_vat_output_adjustment": "корректировки начисленного НДС",
+        "ge_vat_import_vat_payable": "НДС при импорте к уплате",
+        "ge_vat_reverse_charge_vat_payable": "НДС по обратному начислению",
+        "ge_vat_exempt_or_mixed_use_turnover": (
+            "оборот по освобождённым или смешанным операциям"
+        ),
+        "ge_vat_special_transaction_amount": "сумма специальных операций",
+    }
+    readable = names.get(code, code or value)
+    if prefix == "supported_scope":
+        return f"{readable}: требуется отдельный алгоритм"
+    if prefix == "unique_accounting_metric":
+        return f"{readable}: найдено несколько значений"
+    if prefix == "currency":
+        return f"{readable}: нужна единая валюта"
+    if prefix == "non_negative_metric":
+        return f"{readable}: значение не может быть отрицательным"
+    return readable
 
 
 def _comparison_view(outcome: SynchronizationOutcome) -> FiscalComparisonView | None:

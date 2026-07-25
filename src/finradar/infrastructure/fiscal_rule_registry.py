@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from finradar.application.fiscal_rules import ActiveFiscalRuleSet
 from finradar.domain.fiscal import FiscalRuleStatus
-from finradar.domain.fiscal import PercentageFiscalRule
+from finradar.domain.fiscal import GeorgianVatRule, PercentageFiscalRule
 from finradar.domain.fiscal_consequences import FineRule, LatePaymentPenaltyRule
 from finradar.infrastructure.fiscal_rule_codec import (
     RuleDefinition,
@@ -125,7 +125,9 @@ class SqlAlchemyFiscalRuleRegistry:
         active = self.load_active()
         return ActiveFiscalRuleSet(
             obligation_rules=tuple(
-                item for item in active if isinstance(item, PercentageFiscalRule)
+                item
+                for item in active
+                if isinstance(item, (PercentageFiscalRule, GeorgianVatRule))
             ),
             penalty_rules=tuple(
                 item for item in active if isinstance(item, LatePaymentPenaltyRule)

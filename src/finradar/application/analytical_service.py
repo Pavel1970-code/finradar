@@ -13,7 +13,7 @@ from finradar.domain.fiscal import (
     ApplicabilityStatus,
     FiscalCalculationResult,
     FiscalObligation,
-    PercentageFiscalRule,
+    FiscalObligationRule,
     ReconciliationAction,
     ReconciliationResult,
     calculate_fiscal_obligation,
@@ -50,7 +50,7 @@ class AnalyticalResult:
 
 def analyze_financial_risk(
     snapshot: FinancialSnapshot,
-    rules: tuple[PercentageFiscalRule, ...],
+    rules: tuple[FiscalObligationRule, ...],
     *,
     as_of: date,
     horizon_days: int,

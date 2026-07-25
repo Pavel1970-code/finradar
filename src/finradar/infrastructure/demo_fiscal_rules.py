@@ -14,7 +14,7 @@ _NEXT_STATUS = {
 
 
 class DemoFiscalRuleBootstrapper:
-    """Idempotently provisions explicitly fictional rules through the audited lifecycle."""
+    """Provisions bundled scenario rules through the audited lifecycle."""
 
     def __init__(self, registry: SqlAlchemyFiscalRuleRegistry) -> None:
         self._registry = registry
@@ -34,7 +34,10 @@ class DemoFiscalRuleBootstrapper:
         except LookupError:
             self._registry.register_candidate(
                 with_rule_status(rule, FiscalRuleStatus.CANDIDATE),
-                reason="Bundled fictional MVP rule; not valid for real fiscal use.",
+                reason=(
+                    "Bundled MVP scenario rule; activation is limited to "
+                    "deterministic prototype scenarios."
+                ),
             )
             lifecycle = (FiscalRuleStatus.CANDIDATE,)
 
@@ -49,6 +52,9 @@ class DemoFiscalRuleBootstrapper:
                 rule.rule_id,
                 rule.version,
                 next_status,
-                reason="Approved only for deterministic fictional MVP data.",
+                reason=(
+                    "Approved only for the bundled prototype scenario; not "
+                    "approved for real company calculations."
+                ),
             )
             current = next_status

@@ -4,7 +4,11 @@ from datetime import date
 from decimal import Decimal
 from typing import TypeAlias
 
-from finradar.domain.fiscal import FiscalRuleStatus, PercentageFiscalRule
+from finradar.domain.fiscal import (
+    FiscalRuleStatus,
+    GeorgianVatRule,
+    PercentageFiscalRule,
+)
 from finradar.domain.financial_snapshot import (
     CounterpartyKind,
     CounterpartyReference,
@@ -17,9 +21,11 @@ from finradar.domain.fiscal_consequences import (
 )
 
 
-RuleDefinition: TypeAlias = PercentageFiscalRule | LatePaymentPenaltyRule | FineRule
-SCHEMA_VERSION = 2
-SUPPORTED_SCHEMA_VERSIONS = {1, 2}
+RuleDefinition: TypeAlias = (
+    PercentageFiscalRule | GeorgianVatRule | LatePaymentPenaltyRule | FineRule
+)
+SCHEMA_VERSION = 3
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3}
 
 
 def encode_rule(rule: RuleDefinition) -> tuple[str, str]:
@@ -48,6 +54,38 @@ def encode_rule(rule: RuleDefinition) -> tuple[str, str]:
                 }
                 if rule.payment_recipient is not None
                 else None
+            ),
+        }
+    elif isinstance(rule, GeorgianVatRule):
+        rule_type = "georgian_vat"
+        definition = {
+            "rule_id": rule.rule_id,
+            "version": rule.version,
+            "title": rule.title,
+            "jurisdiction": rule.jurisdiction,
+            "tax_regimes": sorted(rule.tax_regimes),
+            "effective_from": rule.effective_from.isoformat(),
+            "effective_to": (
+                rule.effective_to.isoformat() if rule.effective_to is not None else None
+            ),
+            "taxable_turnover_metric_code": rule.taxable_turnover_metric_code,
+            "deductible_input_vat_metric_code": (
+                rule.deductible_input_vat_metric_code
+            ),
+            "output_adjustment_metric_code": rule.output_adjustment_metric_code,
+            "import_vat_metric_code": rule.import_vat_metric_code,
+            "reverse_charge_vat_metric_code": rule.reverse_charge_vat_metric_code,
+            "excluded_or_mixed_use_metric_code": (
+                rule.excluded_or_mixed_use_metric_code
+            ),
+            "special_transaction_metric_code": rule.special_transaction_metric_code,
+            "rate": str(rule.rate),
+            "due_day_of_following_month": rule.due_day_of_following_month,
+            "obligation_category": rule.obligation_category,
+            "source_reference": rule.source_reference,
+            "payment_recipient": _counterparty_value(rule.payment_recipient),
+            "non_business_dates": sorted(
+                item.isoformat() for item in rule.non_business_dates
             ),
         }
     elif isinstance(rule, LatePaymentPenaltyRule):
@@ -141,6 +179,41 @@ def decode_rule(content_json: str, *, status: FiscalRuleStatus) -> RuleDefinitio
             ),
             status=status,
         )
+    if rule_type == "georgian_vat":
+        return GeorgianVatRule(
+            rule_id=item["rule_id"],
+            version=item["version"],
+            title=item["title"],
+            jurisdiction=item["jurisdiction"],
+            tax_regimes=frozenset(item["tax_regimes"]),
+            effective_from=date.fromisoformat(item["effective_from"]),
+            effective_to=(
+                date.fromisoformat(item["effective_to"])
+                if item["effective_to"] is not None
+                else None
+            ),
+            taxable_turnover_metric_code=item["taxable_turnover_metric_code"],
+            deductible_input_vat_metric_code=(
+                item["deductible_input_vat_metric_code"]
+            ),
+            output_adjustment_metric_code=item["output_adjustment_metric_code"],
+            import_vat_metric_code=item["import_vat_metric_code"],
+            reverse_charge_vat_metric_code=item["reverse_charge_vat_metric_code"],
+            excluded_or_mixed_use_metric_code=(
+                item["excluded_or_mixed_use_metric_code"]
+            ),
+            special_transaction_metric_code=item["special_transaction_metric_code"],
+            rate=Decimal(item["rate"]),
+            due_day_of_following_month=item["due_day_of_following_month"],
+            obligation_category=item["obligation_category"],
+            source_reference=item["source_reference"],
+            payment_recipient=_counterparty_from_value(item.get("payment_recipient")),
+            non_business_dates=frozenset(
+                date.fromisoformat(value)
+                for value in item.get("non_business_dates", ())
+            ),
+            status=status,
+        )
     if rule_type == "late_payment_penalty":
         return LatePaymentPenaltyRule(
             rule_id=item["rule_id"],
@@ -196,3 +269,27 @@ def _optional_decimal(value: Decimal | None) -> str | None:
 
 def _decimal_or_none(value: str | None) -> Decimal | None:
     return Decimal(value) if value is not None else None
+
+
+def _counterparty_value(
+    value: CounterpartyReference | None,
+) -> dict[str, str] | None:
+    if value is None:
+        return None
+    return {
+        "external_id": value.external_id,
+        "name": value.name,
+        "kind": value.kind.value,
+    }
+
+
+def _counterparty_from_value(value: object) -> CounterpartyReference | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Fiscal rule payment recipient is invalid.")
+    return CounterpartyReference(
+        external_id=value["external_id"],
+        name=value["name"],
+        kind=CounterpartyKind(value["kind"]),
+    )

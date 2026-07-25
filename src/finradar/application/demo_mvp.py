@@ -35,6 +35,7 @@ from finradar.infrastructure.synchronization_history import (
 class DemoScenarioOption:
     scenario_id: str
     title: str
+    notice: str
 
 
 class DemoMvpController:
@@ -55,7 +56,7 @@ class DemoMvpController:
 
     def options(self) -> tuple[DemoScenarioOption, ...]:
         return tuple(
-            DemoScenarioOption(item.scenario_id, item.title)
+            DemoScenarioOption(item.scenario_id, item.title, item.fictional_notice)
             for item in self._repository.list()
         )
 

@@ -27,7 +27,7 @@ from finradar.infrastructure.models import (
 from finradar.infrastructure.snapshot_codec import decode_snapshot
 
 
-ALGORITHM_VERSION = "fiscal-v1"
+ALGORITHM_VERSION = "fiscal-v2"
 SCHEMA_VERSION = 1
 DEMO_CURSOR_PATTERN = re.compile(r"^demo:(?P<id>[a-z][a-z0-9_]{0,63}):v(?P<version>\d+)$")
 

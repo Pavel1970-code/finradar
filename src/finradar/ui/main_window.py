@@ -218,6 +218,7 @@ class MainWindow(QMainWindow):
         demo_scenarios: tuple[tuple[str, str], ...] = (),
         initial_scenario_id: str | None = None,
         demo_notice: str | None = None,
+        demo_notices: dict[str, str] | None = None,
         calculated_at: datetime | None = None,
         history_provider: Callable[[], tuple[ForecastHistoryItem, ...]] | None = None,
         history_loader: Callable[[str], ForecastHistoryDetails] | None = None,
@@ -231,7 +232,11 @@ class MainWindow(QMainWindow):
         self._selected_scenario_id = initial_scenario_id
         if self._selected_scenario_id is None and demo_scenarios:
             self._selected_scenario_id = demo_scenarios[0][0]
-        self._demo_notice = demo_notice
+        self._demo_notices = dict(demo_notices or {})
+        self._demo_notice = self._demo_notices.get(
+            self._selected_scenario_id,
+            demo_notice,
+        )
         self._calculated_at = calculated_at
         self._history_provider = history_provider
         self._history_loader = history_loader
@@ -428,6 +433,7 @@ class MainWindow(QMainWindow):
         if not isinstance(scenario_id, str) or scenario_id == self._selected_scenario_id:
             return
         self._selected_scenario_id = scenario_id
+        self._demo_notice = self._demo_notices.get(scenario_id, self._demo_notice)
         self._analysis = None
         self._show_stress = False
         self._state = ForecastUiState.IDLE
@@ -1037,7 +1043,11 @@ class MainWindow(QMainWindow):
         root_layout: QVBoxLayout,
         view_model: ForecastViewModel,
     ) -> None:
-        if not view_model.obligations and not view_model.consequences:
+        if (
+            not view_model.fiscal_calculations
+            and not view_model.obligations
+            and not view_model.consequences
+        ):
             return
 
         heading = QLabel("Налоги и возможные последствия")
@@ -1048,6 +1058,37 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
+
+        for calculation in view_model.fiscal_calculations:
+            if not calculation.resolved:
+                fields = ", ".join(calculation.missing_fields) or "исходные данные"
+                label = QLabel(
+                    f"{calculation.title}\n"
+                    "Расчёт не выполнен и не включён в прогноз. "
+                    f"Не хватает или требуется уточнить: {fields}."
+                )
+                label.setObjectName("readinessWarning")
+                label.setWordWrap(True)
+                layout.addWidget(label)
+                continue
+            if len(calculation.components) <= 1:
+                continue
+            assert calculation.net_amount is not None
+            component_lines = "\n".join(
+                f"• {component.title}: "
+                f"{format_money(component.amount, component.currency)}"
+                for component in calculation.components
+            )
+            label = QLabel(
+                f"{calculation.title}: {calculation.position_text}\n"
+                f"{component_lines}\n"
+                "Итоговая налоговая позиция: "
+                f"{format_money(calculation.net_amount, calculation.currency)}.\n"
+                f"{_fiscal_source_text(calculation.source_reference)}"
+            )
+            label.setObjectName("detailText")
+            label.setWordWrap(True)
+            layout.addWidget(label)
 
         for obligation in view_model.obligations:
             rate = (obligation.rate * Decimal("100")).normalize()
@@ -1085,7 +1126,9 @@ class MainWindow(QMainWindow):
             layout.addWidget(label)
 
         note = QLabel(
-            "Суммы рассчитаны по вымышленным правилам демонстрационного сценария. "
+            "Это расчёт прототипа на данных выбранного сценария. "
+            "Перед использованием с реальной компанией необходимы проверка "
+            "налогового статуса, полноты операций и актуальности нормативной базы. "
             f"Валюта представления: {view_model.currency}."
         )
         note.setObjectName("auditNote")
@@ -1840,6 +1883,15 @@ def _period_text(period_start: date | None, period_end: date | None) -> str:
         f"Период: {period_start.strftime('%d.%m.%Y')}–"
         f"{period_end.strftime('%d.%m.%Y')}"
     )
+
+
+def _fiscal_source_text(source_reference: str) -> str:
+    if "matsne.gov.ge" in source_reference:
+        return (
+            "Нормативная основа: Налоговый кодекс Грузии, "
+            "статьи 166–168 и 181."
+        )
+    return "Нормативная основа: правило выбранного демонстрационного сценария."
 
 
 def _event_status_text(event: FinancialEvent, *, as_of: date) -> str:

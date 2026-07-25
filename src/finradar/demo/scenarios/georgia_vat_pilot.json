@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "scenario_id": "georgia_vat_pilot",
+  "scenario_version": 1,
+  "payload_sha256": "045ba57f66c80b850d947f42988727621f03b6aa9ea3a6a8c248dc9689d0e2a7",
+  "payload": {
+    "title": "Грузия: аудит НДС и прогноз — пилот",
+    "fictional_notice": "Компания и бухгалтерские операции вымышлены. Ставка, отчётный период и срок уплаты НДС взяты из действующей консолидированной редакции Налогового кодекса Грузии; расчёт намеренно ограничен стандартными внутренними операциями.",
+    "as_of": "2026-07-10",
+    "horizon_days": 30,
+    "stress_overdue_days": 0,
+    "accounting": {
+      "source_system": "demo-accounting:georgia_vat_pilot:v1",
+      "captured_at": "2026-07-10T09:00:00+04:00",
+      "available_datasets": [
+        "company_profile",
+        "account_balances",
+        "accounting_facts",
+        "payment_calendar"
+      ],
+      "company": {
+        "external_id": "fictional-ge-company",
+        "name": "ООО «Демо Картли» — вымышленная компания",
+        "base_currency": "GEL",
+        "jurisdiction": "GE",
+        "tax_regime": "ge-vat-registered-domestic-standard-only"
+      },
+      "balances": [
+        {
+          "external_id": "fictional-ge-operating-account",
+          "name": "Вымышленный операционный счёт",
+          "currency": "GEL",
+          "amount": "6000.00",
+          "balance_date": "2026-07-10"
+        }
+      ],
+      "metrics": [
+        {
+          "code": "ge_vat_standard_taxable_turnover_net",
+          "amount": "20000.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-output:2026-06"
+        },
+        {
+          "code": "ge_vat_deductible_input_vat",
+          "amount": "1100.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-input-eligible:2026-06"
+        },
+        {
+          "code": "ge_vat_output_adjustment",
+          "amount": "0.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-adjustments:2026-06"
+        },
+        {
+          "code": "ge_vat_import_vat_payable",
+          "amount": "0.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-import:2026-06"
+        },
+        {
+          "code": "ge_vat_reverse_charge_vat_payable",
+          "amount": "0.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-reverse-charge:2026-06"
+        },
+        {
+          "code": "ge_vat_exempt_or_mixed_use_turnover",
+          "amount": "0.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-scope-check:2026-06"
+        },
+        {
+          "code": "ge_vat_special_transaction_amount",
+          "amount": "0.00",
+          "currency": "GEL",
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30",
+          "source_reference": "fictional-ledger:vat-special-check:2026-06"
+        }
+      ],
+      "events": [
+        {
+          "external_id": "fictional-ge-supplier-payment",
+          "title": "Оплата поставщику за товар",
+          "amount": "7000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-12",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "suppliers",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:001",
+          "counterparty": {
+            "external_id": "fictional-ge-supplier",
+            "name": "ООО «Демо Поставщик»",
+            "kind": "supplier"
+          },
+          "payment_purpose": "Оплата партии товара от 30.06.2026",
+          "payment_basis": {
+            "document_type": "invoice",
+            "document_number": "GE-DEMO-SUP-006",
+            "document_date": "2026-06-30",
+            "description": "Вымышленный счёт поставщика"
+          }
+        },
+        {
+          "external_id": "fictional-ge-vat-calendar",
+          "title": "НДС за июнь 2026 года",
+          "amount": "2500.00",
+          "currency": "GEL",
+          "due_date": "2026-07-15",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "settled_amount": "500.00",
+          "obligation_key": "ge-vat-standard:2026-06-01:2026-06-30",
+          "category": "vat",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:vat-2026-06",
+          "counterparty": {
+            "external_id": "ge-revenue-service",
+            "name": "Служба доходов Грузии",
+            "kind": "tax_authority"
+          },
+          "payment_purpose": "НДС за июнь 2026 года",
+          "payment_basis": {
+            "document_type": "tax_return",
+            "document_number": "GE-DEMO-VAT-2026-06",
+            "document_date": "2026-07-10",
+            "description": "Вымышленная декларация НДС"
+          },
+          "period_start": "2026-06-01",
+          "period_end": "2026-06-30"
+        },
+        {
+          "external_id": "fictional-ge-customer-receipt",
+          "title": "Оплата от покупателя",
+          "amount": "8000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-20",
+          "direction": "inflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "receivables",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:002",
+          "counterparty": {
+            "external_id": "fictional-ge-customer",
+            "name": "ООО «Демо Покупатель»",
+            "kind": "customer"
+          },
+          "payment_purpose": "Оплата поставки от 02.07.2026",
+          "payment_basis": {
+            "document_type": "invoice",
+            "document_number": "GE-DEMO-CUS-007",
+            "document_date": "2026-07-02",
+            "description": "Вымышленный счёт покупателю"
+          }
+        },
+        {
+          "external_id": "fictional-ge-payroll",
+          "title": "Заработная плата за июль",
+          "amount": "4000.00",
+          "currency": "GEL",
+          "due_date": "2026-07-31",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "payroll",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:003",
+          "counterparty": {
+            "external_id": "fictional-ge-employees",
+            "name": "Сотрудники — агрегированная выплата",
+            "kind": "employees"
+          },
+          "payment_purpose": "Заработная плата за июль 2026 года",
+          "payment_basis": {
+            "document_type": "payroll_register",
+            "document_number": "GE-DEMO-PAY-07",
+            "document_date": "2026-07-10",
+            "description": "Вымышленная расчётная ведомость"
+          },
+          "period_start": "2026-07-01",
+          "period_end": "2026-07-31"
+        },
+        {
+          "external_id": "fictional-ge-rent",
+          "title": "Аренда офиса за август",
+          "amount": "2000.00",
+          "currency": "GEL",
+          "due_date": "2026-08-01",
+          "direction": "outflow",
+          "kind": "planned",
+          "status": "confirmed",
+          "category": "rent",
+          "account_external_id": "fictional-ge-operating-account",
+          "source_reference": "fictional-payment-calendar:ge:004",
+          "counterparty": {
+            "external_id": "fictional-ge-landlord",
+            "name": "ООО «Демо Арендодатель»",
+            "kind": "landlord"
+          },
+          "payment_purpose": "Аренда офиса за август 2026 года",
+          "payment_basis": {
+            "document_type": "contract",
+            "document_number": "GE-DEMO-RENT-01",
+            "document_date": "2026-01-10",
+            "description": "Вымышленный договор аренды"
+          },
+          "period_start": "2026-08-01",
+          "period_end": "2026-08-31"
+        }
+      ],
+      "source_issues": [],
+      "source_cursor": "demo:georgia_vat_pilot:v1"
+    },
+    "bank": {
+      "source_system": "demo-bank:georgia_vat_pilot:v1",
+      "captured_at": "2026-07-10T09:05:00+04:00",
+      "available": true,
+      "statements": [],
+      "source_issues": [],
+      "next_cursor": "demo-bank:georgia_vat_pilot:v1"
+    },
+    "fiscal_rules": [
+      {
+        "rule_id": "ge-vat-standard",
+        "version": 1,
+        "title": "НДС Грузии за июнь 2026 года",
+        "jurisdiction": "GE",
+        "tax_regimes": [
+          "ge-vat-registered-domestic-standard-only"
+        ],
+        "effective_from": "2026-07-01",
+        "effective_to": null,
+        "taxable_turnover_metric_code": "ge_vat_standard_taxable_turnover_net",
+        "deductible_input_vat_metric_code": "ge_vat_deductible_input_vat",
+        "output_adjustment_metric_code": "ge_vat_output_adjustment",
+        "import_vat_metric_code": "ge_vat_import_vat_payable",
+        "reverse_charge_vat_metric_code": "ge_vat_reverse_charge_vat_payable",
+        "excluded_or_mixed_use_metric_code": "ge_vat_exempt_or_mixed_use_turnover",
+        "special_transaction_metric_code": "ge_vat_special_transaction_amount",
+        "rate": "0.18",
+        "due_day_of_following_month": 15,
+        "obligation_category": "vat",
+        "source_reference": "https://matsne.gov.ge/ka/document/download/1043717/245/ge/pdf#articles-166-168-181",
+        "payment_recipient": {
+          "external_id": "ge-revenue-service",
+          "name": "Служба доходов Грузии",
+          "kind": "tax_authority"
+        },
+        "non_business_dates": []
+      }
+    ],
+    "penalty_rules": [],
+    "fine_rules": [],
+    "violation_events": [],
+    "expected": {
+      "readiness_status": "limited",
+      "opening_balance": "6000.00",
+      "closing_balance": "-1000.00",
+      "minimum_balance": "-3000.00",
+      "first_gap_date": "2026-07-12",
+      "required_funding": "3000.00",
+      "fiscal_obligation_amount": "2500.00",
+      "stress_minimum_balance": "-3000.00",
+      "issue_codes": [
+        "bank_statements_empty"
+      ],
+      "bank_matched_count": 0,
+      "bank_missing_count": 0
+    }
+  }
+}

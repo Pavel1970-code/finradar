@@ -80,13 +80,15 @@ defined in
 
 ## Status
 
-The offline MVP runs on three bundled, explicitly fictional scenarios.
+The offline MVP runs on four bundled scenarios.
 It opens without seeding the prototype tables; press **Дать прогноз** to run the
-accounting snapshot, bank reconciliation, fictional fiscal rules, deterministic
+accounting snapshot, bank reconciliation, fiscal rules, deterministic
 forecast, stress calculation, and local audit-history pipeline.
 
 The demo selector covers a base cash gap, incomplete recent bank data, and a
-fictional fiscal-rate change with partial payment and delay consequences.
+fictional fiscal-rate change with partial payment and delay consequences. A
+fourth pilot applies a manually verified, narrow Georgian VAT rule to fictional
+accounting data and exposes the calculation breakdown.
 
 From an activated development environment:
 
@@ -94,9 +96,9 @@ From an activated development environment:
 finradar
 ```
 
-The bundled scenario is fixed to a documented analysis date so repeated runs
-produce the same numerical result. It is not a real fiscal calculation and must
-not be used with company data.
+Every bundled scenario is fixed to a documented analysis date so repeated runs
+produce the same numerical result. The Georgian VAT pilot is not a complete tax
+implementation and none of the scenarios may be used with real company data.
 
 A function-by-function factual description of the current implementation,
 including test evidence, Windows status, missing components, and known risks, is

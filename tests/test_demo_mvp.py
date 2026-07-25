@@ -150,7 +150,12 @@ def test_base_scenario_matches_golden_result_and_records_audit_history(
 
 @pytest.mark.parametrize(
     "scenario_id",
-    ["base_cash_gap", "missing_recent_data", "fiscal_change_and_delay"],
+    [
+        "base_cash_gap",
+        "missing_recent_data",
+        "fiscal_change_and_delay",
+        "georgia_vat_pilot",
+    ],
 )
 def test_every_demo_scenario_matches_its_golden_contract(scenario_id: str) -> None:
     scenario = DemoScenarioRepository().load(scenario_id)
@@ -346,6 +351,7 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
         demo_scenarios=tuple((item.scenario_id, item.title) for item in options),
         initial_scenario_id="base_cash_gap",
         demo_notice="Все данные вымышлены.",
+        demo_notices={item.scenario_id: item.notice for item in options},
     )
     qtbot.addWidget(window)
     window.show()
@@ -393,6 +399,22 @@ def test_demo_controller_and_window_run_selected_scenarios(tmp_path: Path, qtbot
     assert len(window.findChildren(QFrame, "taxCalendarRow")) == 1
     texts = "\n".join(label.text() for label in window.findChildren(QLabel))
     assert "Частично оплачено: 500.00 GEL" in texts
+
+    selector = window.findChild(QComboBox, "scenarioSelector")
+    selector.setCurrentIndex(selector.findData("georgia_vat_pilot"))
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "Ставка, отчётный период и срок уплаты НДС" in texts
+    qtbot.mouseClick(
+        window.findChild(QPushButton, "forecastButton"),
+        Qt.MouseButton.LeftButton,
+    )
+    qtbot.waitUntil(lambda: window.state is ForecastUiState.RESULT, timeout=5000)
+    qtbot.waitUntil(lambda: window._worker is None, timeout=5000)
+    texts = "\n".join(label.text() for label in window.findChildren(QLabel))
+    assert "Начисленный НДС со стандартного облагаемого оборота: 3,600.00 GEL" in texts
+    assert "Вычитаемый входной НДС: -1,100.00 GEL" in texts
+    assert "Итоговая налоговая позиция: 2,500.00 GEL" in texts
+    assert "Налоговый кодекс Грузии, статьи 166–168 и 181" in texts
 
 
 def test_base_calendar_shows_debtors_payees_documents_and_tax_details(qtbot) -> None:

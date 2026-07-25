@@ -176,6 +176,22 @@ calculate amounts.
   the stored forecast, events, obligations, and consequences without rerunning
   the financial calculation. Failed integrity checks disable only the affected
   entry.
+- A dedicated Georgian VAT rule type deterministically calculates the narrow
+  standard-domestic-operation case from monthly net turnover, deductible input
+  VAT, output adjustments, import VAT, and reverse-charge VAT.
+- Georgian VAT inputs must cover the same calendar month and use the company
+  currency. Missing, duplicate, negative, or period-mismatched components stop
+  the calculation instead of being treated as zero.
+- Explicit scope-control metrics stop the narrow calculator when exempt,
+  mixed-use, or special transactions are present.
+- The VAT result exposes its component amounts, net payable/credit position,
+  source reference, and formula. A credit is not treated as a cash receipt
+  because no refund date is known.
+- A fourth bundled scenario applies the manually verified Georgian VAT rule to
+  fictional accounting data, reconciles a partial advance payment, and includes
+  only the outstanding GEL 2,000 in the cash forecast.
+- Unresolved fiscal inputs are shown as user-facing data gaps; the forecast then
+  relies only on any amount already present in the payment calendar.
 
 ## Verification
 
@@ -186,12 +202,12 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest result: Ruff passed; 119 tests passed, including Ed25519 tamper rejection,
-key rotation and revocation, package expiry, quarantine, replay protection,
-immutable import audit, archive-integrity verification, distribution manifests
-and wheel-boundary verification, the regulatory trust
-boundary, malformed/tampered package rejection, official-source policy, separate
-monitor storage, fiscal rule lifecycle,
+Latest local result: Ruff passed; 127 tests passed. The suite includes Ed25519
+tamper rejection, key rotation and revocation, package expiry, quarantine,
+replay protection, immutable import audit, archive-integrity verification,
+distribution manifests and wheel-boundary verification, the regulatory trust
+boundary, malformed/tampered package rejection, official-source policy,
+separate monitor storage, fiscal rule lifecycle,
 version supersession, immutable analysis history, fiscal applicability,
 calculation, reconciliation, migration, snapshot compatibility, immutability,
 penalty rate changes and gaps, conditional fines, stress scenarios, round-trip,
@@ -211,8 +227,16 @@ and UI smoke tests.
   installer after ACL provisioning.
 - Monitor private keys are protected by file permissions/ACL design, not yet by
   Windows CNG, DPAPI, or hardware-backed storage.
-- The fiscal engine supports only a fictional percentage rule and is not a real
-  tax implementation.
+- The Georgian VAT rule is a narrow pilot, not a complete Georgian VAT
+  implementation. It does not calculate exemptions, proportional input-tax
+  deductions, special transactions, tax-invoice eligibility, corrections,
+  foreign-currency conversion, or refund timing.
+- The Georgian VAT normative values are manually encoded from one official
+  consolidated Tax Code PDF. Automatic retrieval, amendment detection, legal
+  review, and activation of updates are not implemented.
+- Weekend deadline rolling is deterministic. Public holidays are applied only
+  when supplied explicitly with the rule; a maintained Georgian holiday
+  calendar is not implemented.
 - Penalty and fine structures are generic and tested only with fictional rules;
   no real jurisdictional formula has been activated.
 - No network access has been added.
@@ -243,4 +267,7 @@ and UI smoke tests.
 7. Select the first bank statement format/provider and add its adapter with
    golden reconciliation fixtures.
 8. Implement a constrained downloader that revalidates the allowlist after every
-   redirect, then connect one stable official Georgian source without AI.
+   redirect, then connect the official Georgian Tax Code source without AI.
+9. Add a reviewed Georgian business-day calendar and define the next VAT
+   calculation scope: corrections and import/reverse-charge document mapping
+   before mixed-use deductions.

@@ -36,8 +36,9 @@ superseded, and inactive rules never affect calculations.
 
 The first implementation supports a fictional percentage rule over one named
 accounting metric and a deterministic number of days after the metric period.
-It deliberately does not claim to implement any real tax, penalty, benefit, or
-jurisdiction.
+The later Georgian VAT pilot adds a separate narrow multi-component rule; its
+scope and non-goals are recorded in ADR-009. Neither rule type constitutes a
+complete tax implementation.
 
 ## Consequences
 
@@ -47,4 +48,3 @@ jurisdiction.
 - Rule extraction, legal review, formula execution, and human explanation remain
   separate responsibilities.
 - Real fiscal formulas require additional reviewed rule types and golden tests.
-
