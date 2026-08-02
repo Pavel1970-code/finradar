@@ -243,6 +243,17 @@ calculate amounts.
   company-only statuses assigned to an individual entrepreneur.
 - Profile facts can be combined with transaction and regulatory fact IDs to
   produce the exact missing-data list for a tax-rate rule.
+- The desktop application now exposes a deterministic one-question-at-a-time
+  company-settings wizard. It renders only catalog-defined questions, supports
+  conditional branches, explicit `unknown`/skip paths, evidence references, a
+  completeness summary, and immutable versioned saves.
+- The Georgian demo adapter prefills only facts explicitly present in the
+  accounting snapshot (residency/VAT regime and payroll presence). It does not
+  infer legal form from the company name. Prefilled facts remain unverified
+  until the user confirms them.
+- Missing or conflicting tax-profile facts are included in the preliminary
+  readiness report as exact warnings. They limit the fiscal part but do not
+  block a cash-only forecast.
 
 ## Verification
 
@@ -253,7 +264,7 @@ Run with the project virtual environment:
 .venv/bin/python -m pytest -q
 ```
 
-Latest local result: Ruff passed; 161 tests passed. The suite includes Ed25519
+Latest local result: Ruff passed; 169 tests passed. The suite includes Ed25519
 tamper rejection, key rotation and revocation, package expiry, quarantine,
 replay protection, immutable import audit, archive-integrity verification,
 distribution manifests and wheel-boundary verification, the regulatory trust
@@ -291,9 +302,10 @@ and UI smoke tests.
 - Historical rate periods before 25 July 2026 are not reconstructed. The first
   catalog version guarantees current applicability from its verification date
   and must not be used to back-calculate earlier periods.
-- The questionnaire domain, storage, and branching logic exist, but no desktop
-  settings/onboarding screen uses them yet. Real 1C and public-registry
-  autofill are also not connected.
+- The questionnaire is connected to the desktop settings/onboarding screen and
+  preliminary report. Real 1C and public-registry autofill are not connected;
+  the current adapter is limited to explicit fields in the bundled Georgian
+  fictional snapshot.
 - Weekend deadline rolling is deterministic. Public holidays are applied only
   when supplied explicitly with the rule; a maintained Georgian holiday
   calendar is not implemented.
@@ -334,8 +346,8 @@ and UI smoke tests.
 9. Add a reviewed Georgian business-day calendar and define the next VAT
    calculation scope: corrections and import/reverse-charge document mapping
    before mixed-use deductions.
-10. Connect the tax profile to canonical 1C company fields, build the onboarding
-    UI from the fixed questionnaire, and complete the applicability resolver so
+10. Extend the implemented onboarding adapter with canonical fields from the
+    selected real 1C configuration, then complete the applicability resolver so
     that only one unambiguous selected rule reaches a deterministic calculator.
 11. Import the complete official excise/import classification tables and the
     first selected municipality's property-tax acts as independently versioned

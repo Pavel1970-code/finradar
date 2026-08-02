@@ -54,7 +54,7 @@
 | Канонический локальный зарплатный набор | **Implemented and tested** | Snapshot v5 хранит отдельные базы налога и пенсии, чистую зарплату, удержания, расход работодателя, пенсионный статус и сроки без имени/личного номера работника. Реальное соответствие регистрам конкретной 1С не проверялось. |
 | Стандартные зарплатные нормы Грузии | **Implemented and tested** | Версионированный снимок содержит 20% подоходного налога, пенсионные доли 2% + 2%, государственные пороги и основные сроки по публикациям 245 и 12. Льготы и специальные случаи не реализованы. |
 | Версионированный каталог налоговых ставок Грузии | **Implemented and tested** | Локальный SHA-256-protected JSON содержит 16 правил, их базы, условия, обязательные fact IDs, статьи и операционные периоды. Все шесть налогов представлены; неперенесённые таблицы акциза, импорта и земли помечены `reference_only`. Каталог не является общим исполняемым налоговым движком. |
-| Детерминированная настройка налогового профиля | **Partially implemented** | Реализованы 24 фиксированных вопроса, кодированное ветвление, `unknown`, проверки конфликтов и immutable локальная история ответов. ИИ не участвует. Экран настроек и автозаполнение из реальной 1С ещё отсутствуют. |
+| Детерминированная настройка налогового профиля | **Implemented and tested** | Реализованы 24 фиксированных вопроса, пошаговый desktop-мастер, кодированное ветвление, `unknown`/пропуск, подтверждающие документы, итоговый список пробелов, проверки конфликтов и immutable локальная история версий. ИИ не участвует. Из demo-снимка автоматически переносятся только явно заданные признаки; реальная 1С ещё не подключена. |
 | Реальный транспорт к 1С | **Planned** | Нет COM, файлового обмена, named pipe, OData/HTTP или локального sidecar. Не выбрана конкретная конфигурация 1С и её схема. |
 | Автоматическая первая полная ревизия 1С | **Planned** | Контракт допускает полный снимок, но оркестрация реального первого импорта отсутствует. |
 | Автоматические последующие incremental-обновления | **Partially implemented** | В контракте есть `since`, `cursor`, `next_cursor` и capability flag. Приложение не загружает предыдущий курсор и не планирует последующий запуск. |
@@ -216,13 +216,15 @@ active fiscal rules из Core SQLite ───────────┼─> de
 | `finradar.infrastructure.connectors.one_c` | 1C mapping shell и fixture transport | Тесты; реального транспорта нет |
 | `finradar.infrastructure.connectors.bank` | Fixture и CSV bank adapters | Тесты/API; desktop startup не подключён |
 | `finradar.infrastructure.fiscal_rule_registry` | Immutable definitions и lifecycle | Active rules загружаются при старте; registry UI/CLI нет |
-| `finradar.domain.tax_profile` | Вопросы, ответы, профиль, ветвление и конфликты | Детерминированная логика реализована; UI отсутствует |
+| `finradar.domain.tax_profile` | Вопросы, ответы, профиль, ветвление и конфликты | Детерминированная логика используется desktop-мастером |
+| `finradar.application.tax_profile_setup` | Черновик, проверка, точное автозаполнение и создание новой версии профиля | Реализовано и покрыто unit/UI-тестами; реальный 1С adapter не подключён |
 | `finradar.infrastructure.tax_profile_repository` | Immutable история налогового профиля | Локальная запись и проверка SHA-256 реализованы |
-| `finradar.application.tax_profile_readiness` | Объединение профильных, транзакционных и нормативных fact IDs | Выявляет пробелы выбранного правила; общий selector ещё отсутствует |
+| `finradar.application.tax_profile_readiness` | Объединение профильных, транзакционных и нормативных fact IDs | Выявляет пробелы выбранного правила и добавляет профильные пробелы в предварительный отчёт; общий selector ещё отсутствует |
 | `finradar.infrastructure.regulatory_inbox` | Verify, accept/quarantine, replay protection и archive | Программный API; startup/outbox polling не подключены |
 | `finradar.infrastructure.regulatory_trust_store` | Public-key bootstrap, rotation и revocation | Bootstrap доступен CLI; дальнейший operator workflow не подключён |
 | `finradar.infrastructure.regulatory_retention` | Удаление старых rejected raw packages | Автоматически при старте Core |
-| `finradar.ui.main_window` | Readiness и cash forecast presentation | Текущее desktop window |
+| `finradar.ui.main_window` | Readiness, настройки компании и cash forecast presentation | Текущее desktop window |
+| `finradar.ui.tax_profile_wizard` | Пошаговая настройка налогового профиля | Реализован фиксированный UI без генерации вопросов ИИ |
 | `finradar_contracts.regulatory_package` | Строгая package schema v2 | Monitor export и Core import |
 | `finradar_contracts.signatures` | Ed25519 primitives | Package/trust signatures |
 | `finradar_contracts.source_policy` | Exact official-host allowlist | Package validation; downloader пока отсутствует |

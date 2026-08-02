@@ -506,6 +506,22 @@ def _profile_findings(
         answer = active_answers.get(question.fact_id)
         if (
             answer is not None
+            and not answer.is_unknown
+            and answer.verification_status is VerificationStatus.UNVERIFIED
+        ):
+            findings.append(
+                TaxProfileFinding(
+                    code="tax_profile_unverified_fact",
+                    severity=ProfileFindingSeverity.WARNING,
+                    message_ru=(
+                        f"Требуется подтвердить автоматически полученный ответ: "
+                        f"{question.text_ru}"
+                    ),
+                    fact_ids=(question.fact_id,),
+                )
+            )
+        if (
+            answer is not None
             and set(answer.values) & set(question.source_reference_required_for)
             and not answer.source_reference.strip()
         ):

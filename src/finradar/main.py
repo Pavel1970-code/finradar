@@ -6,6 +6,10 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from finradar.application.demo_mvp import DemoMvpController
+from finradar.application.tax_profile_setup import (
+    TaxProfileSetupService,
+    tax_profile_context_from_snapshot,
+)
 from finradar.demo.scenario import DemoScenarioRepository
 from finradar.infrastructure.database import (
     REGULATORY_ARCHIVE_DIRECTORY,
@@ -16,6 +20,9 @@ from finradar.infrastructure.regulatory_inbox import RegulatoryInboxPaths
 from finradar.infrastructure.regulatory_retention import RegulatoryArchiveRetention
 from finradar.infrastructure.regulatory_trust_store import (
     SqlAlchemyRegulatoryTrustStore,
+)
+from finradar.infrastructure.tax_profile_repository import (
+    SqlAlchemyTaxProfileRepository,
 )
 from finradar.ui.main_window import MainWindow
 from finradar_contracts import decode_trust_record
@@ -55,7 +62,18 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
     repository = DemoScenarioRepository()
     controller = DemoMvpController(SessionLocal, repository=repository)
-    scenario = repository.load("base_cash_gap")
+    tax_profile_service = TaxProfileSetupService(
+        SqlAlchemyTaxProfileRepository(SessionLocal)
+    )
+
+    def tax_profile_context(scenario_id: str | None):
+        selected = repository.load(scenario_id or "georgia_vat_pilot")
+        return tax_profile_context_from_snapshot(
+            selected.accounting_snapshot,
+            effective_date=selected.as_of,
+        )
+
+    scenario = repository.load("georgia_vat_pilot")
     options = controller.options()
     window = MainWindow(
         horizon_days=scenario.horizon_days,
@@ -66,6 +84,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
         demo_notices={item.scenario_id: item.notice for item in options},
         history_provider=controller.history,
         history_loader=controller.load_history,
+        tax_profile_service=tax_profile_service,
+        tax_profile_context_provider=tax_profile_context,
+        open_tax_settings_on_start=True,
     )
     window.show()
 

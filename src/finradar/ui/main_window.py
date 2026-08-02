@@ -1,9 +1,10 @@
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QThread, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen
 
 from PySide6.QtWidgets import (
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QComboBox,
     QPushButton,
     QScrollArea,
@@ -20,6 +22,12 @@ from PySide6.QtWidgets import (
 )
 
 from finradar.application.synchronization_service import SynchronizationOutcome
+from finradar.application.tax_profile_readiness import include_tax_profile_readiness
+from finradar.application.tax_profile_setup import (
+    TaxProfileSetupContext,
+    TaxProfileSetupService,
+    TaxProfileSetupState,
+)
 from finradar.application.forecast_history import (
     ForecastHistoryDetails,
     ForecastHistoryItem,
@@ -38,6 +46,7 @@ from finradar.ui.forecast_view_model import (
     ForecastViewModel,
     build_forecast_view_model,
 )
+from finradar.ui.tax_profile_wizard import TaxProfileWizard
 
 
 class ForecastUiState(str, Enum):
@@ -222,6 +231,12 @@ class MainWindow(QMainWindow):
         calculated_at: datetime | None = None,
         history_provider: Callable[[], tuple[ForecastHistoryItem, ...]] | None = None,
         history_loader: Callable[[str], ForecastHistoryDetails] | None = None,
+        tax_profile_service: TaxProfileSetupService | None = None,
+        tax_profile_context_provider: Callable[
+            [str | None], TaxProfileSetupContext
+        ]
+        | None = None,
+        open_tax_settings_on_start: bool = False,
     ) -> None:
         super().__init__()
 
@@ -240,6 +255,9 @@ class MainWindow(QMainWindow):
         self._calculated_at = calculated_at
         self._history_provider = history_provider
         self._history_loader = history_loader
+        self._tax_profile_service = tax_profile_service
+        self._tax_profile_context_provider = tax_profile_context_provider
+        self._tax_profile_state: TaxProfileSetupState | None = None
         self._history_items: tuple[ForecastHistoryItem, ...] = ()
         self._history_details: ForecastHistoryDetails | None = None
         self._history_error: str | None = None
@@ -257,6 +275,12 @@ class MainWindow(QMainWindow):
 
         self._render()
         self._apply_styles()
+        if (
+            open_tax_settings_on_start
+            and self._tax_profile_service is not None
+            and self._tax_profile_context_provider is not None
+        ):
+            QTimer.singleShot(0, self._open_first_run_tax_settings)
 
     @property
     def state(self) -> ForecastUiState:
@@ -285,7 +309,7 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def _accept_result(self, analysis: SynchronizationOutcome) -> None:
-        self._analysis = analysis
+        self._analysis = self._with_tax_profile_readiness(analysis)
         self._calculated_at = datetime.now().astimezone()
         self._history_details = None
         self._show_stress = False
@@ -331,6 +355,9 @@ class MainWindow(QMainWindow):
             root_layout.addWidget(notice)
 
         self._build_action_panel(root_layout)
+
+        if self._tax_profile_service is not None:
+            self._build_tax_profile_panel(root_layout)
 
         if self._history_details is not None:
             self._build_history_details(root_layout, self._history_details)
@@ -404,6 +431,7 @@ class MainWindow(QMainWindow):
             selector_label.setObjectName("controlLabel")
             selector = QComboBox()
             selector.setObjectName("scenarioSelector")
+            selector.view().setObjectName("scenarioMenu")
             for scenario_id, title in self._demo_scenarios:
                 selector.addItem(title, scenario_id)
             selected_index = selector.findData(self._selected_scenario_id)
@@ -423,6 +451,22 @@ class MainWindow(QMainWindow):
         button.setEnabled(self._state is not ForecastUiState.RUNNING)
         button.clicked.connect(self.start_forecast)
         controls_layout.addWidget(button)
+
+        if self._tax_profile_service is not None:
+            settings = QPushButton("Настройки компании")
+            settings.setObjectName("companySettingsButton")
+            settings_available = True
+            try:
+                self._tax_context()
+            except ValueError as error:
+                settings_available = False
+                settings.setToolTip(str(error))
+            settings.setEnabled(
+                self._state is not ForecastUiState.RUNNING
+                and settings_available
+            )
+            settings.clicked.connect(self._open_tax_settings)
+            controls_layout.addWidget(settings)
         root_layout.addWidget(controls)
 
     def _scenario_changed(self, index: int) -> None:
@@ -435,10 +479,122 @@ class MainWindow(QMainWindow):
         self._selected_scenario_id = scenario_id
         self._demo_notice = self._demo_notices.get(scenario_id, self._demo_notice)
         self._analysis = None
+        self._tax_profile_state = None
         self._show_stress = False
         self._state = ForecastUiState.IDLE
         self._error_message = None
         self._render()
+
+    def _tax_context(self) -> TaxProfileSetupContext | None:
+        if self._tax_profile_context_provider is None:
+            return None
+        return self._tax_profile_context_provider(self._selected_scenario_id)
+
+    def _load_tax_profile_state(self) -> TaxProfileSetupState | None:
+        if self._tax_profile_service is None:
+            return None
+        context = self._tax_context()
+        if context is None:
+            return None
+        self._tax_profile_state = self._tax_profile_service.load(context)
+        return self._tax_profile_state
+
+    def _open_first_run_tax_settings(self) -> None:
+        try:
+            state = self._load_tax_profile_state()
+        except (LookupError, ValueError):
+            return
+        if state is not None and state.latest_profile is None:
+            self._open_tax_settings()
+
+    def _open_tax_settings(self) -> None:
+        if self._tax_profile_service is None:
+            return
+        try:
+            state = self._load_tax_profile_state()
+        except ValueError as error:
+            QMessageBox.information(self, "Настройки недоступны", str(error))
+            return
+        if state is None:
+            return
+        wizard = TaxProfileWizard(self._tax_profile_service, state, parent=self)
+        wizard.profile_saved.connect(self._tax_profile_saved)
+        wizard.exec()
+
+    def _tax_profile_saved(self, result) -> None:
+        del result
+        self._tax_profile_state = None
+        if self._analysis is not None:
+            self._analysis = self._with_tax_profile_readiness(self._analysis)
+        self._render()
+
+    def _with_tax_profile_readiness(
+        self,
+        analysis: SynchronizationOutcome,
+    ) -> SynchronizationOutcome:
+        try:
+            state = self._load_tax_profile_state()
+        except (LookupError, ValueError):
+            return analysis
+        if state is None:
+            return analysis
+        return replace(
+            analysis,
+            readiness=include_tax_profile_readiness(
+                analysis.readiness,
+                state.assessment,
+            ),
+        )
+
+    def _build_tax_profile_panel(self, root_layout: QVBoxLayout) -> None:
+        try:
+            state = self._load_tax_profile_state()
+        except (LookupError, ValueError):
+            state = None
+        if state is None:
+            return
+        assessment = state.assessment
+        card = QFrame()
+        card.setObjectName("companySettingsCard")
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(16)
+        description = QVBoxLayout()
+        title = QLabel("Налоговые настройки компании")
+        title.setObjectName("companySettingsTitle")
+        if state.latest_profile is None:
+            status_text = "Настройки ещё не сохранены"
+        elif assessment.readiness.value == "conflict":
+            status_text = "В настройках есть противоречия"
+        elif assessment.readiness.value == "incomplete":
+            status_text = (
+                "Профиль заполнен частично · не хватает ответов: "
+                f"{len(assessment.unanswered_required_questions)}"
+            )
+        elif assessment.findings:
+            status_text = (
+                "Профиль сохранён, но требует проверки · замечаний: "
+                f"{len(assessment.findings)}"
+            )
+        else:
+            status_text = f"Профиль заполнен · версия {state.latest_profile.profile_version}"
+        status = QLabel(status_text)
+        status.setObjectName("companySettingsStatus")
+        status.setWordWrap(True)
+        description.addWidget(title)
+        description.addWidget(status)
+        layout.addLayout(description, 1)
+        if state.latest_profile is None or assessment.readiness.value != "complete":
+            edit_text = "Продолжить настройку"
+        elif assessment.findings:
+            edit_text = "Проверить"
+        else:
+            edit_text = "Изменить"
+        edit = QPushButton(edit_text)
+        edit.setObjectName("companySettingsEditButton")
+        edit.clicked.connect(self._open_tax_settings)
+        layout.addWidget(edit)
+        root_layout.addWidget(card)
 
     def _build_status_card(
         self,
@@ -1562,6 +1718,37 @@ class MainWindow(QMainWindow):
                 background-color: #26324d;
             }
 
+            QPushButton#companySettingsButton,
+            QPushButton#companySettingsEditButton {
+                color: #dbeafe;
+                background-color: #142033;
+                border: 1px solid #2563eb;
+                border-radius: 9px;
+                padding: 10px 14px;
+            }
+
+            QPushButton#companySettingsButton:hover,
+            QPushButton#companySettingsEditButton:hover {
+                background-color: #1e3a5f;
+            }
+
+            QFrame#companySettingsCard {
+                background-color: #11182a;
+                border: 1px solid #26324d;
+                border-radius: 12px;
+            }
+
+            QLabel#companySettingsTitle {
+                color: #f8fafc;
+                font-size: 15px;
+                font-weight: 600;
+            }
+
+            QLabel#companySettingsStatus {
+                color: #94a3b8;
+                font-size: 13px;
+            }
+
             QFrame#actionPanel {
                 background-color: #11182a;
                 border: 1px solid #26324d;
@@ -1580,6 +1767,29 @@ class MainWindow(QMainWindow):
                 border-radius: 8px;
                 padding: 8px 12px;
                 min-height: 22px;
+            }
+
+            QAbstractItemView#scenarioMenu {
+                color: #f8fafc;
+                background-color: #151c2f;
+                border: 1px solid #475569;
+                selection-color: #ffffff;
+                selection-background-color: #1d4ed8;
+                outline: 0;
+                padding: 4px;
+            }
+
+            QAbstractItemView#scenarioMenu::item {
+                color: #f8fafc;
+                background-color: #151c2f;
+                min-height: 32px;
+                padding: 5px 9px;
+            }
+
+            QAbstractItemView#scenarioMenu::item:selected,
+            QAbstractItemView#scenarioMenu::item:hover {
+                color: #ffffff;
+                background-color: #1d4ed8;
             }
 
             QFrame#modePanel {
